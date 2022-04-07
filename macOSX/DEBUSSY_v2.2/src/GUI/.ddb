@@ -1,0 +1,30 @@
+!
+! PHASE SECTION
+! 
+Phase_Name (.pha/.xyz) (M) :   /Users/rug/local/DEBUSSY/DEBUSSY_v2.0DEV/src/GUI/.pha
+Spacegroupnumber_orig (M) :    
+Atomic Species No. (M) :    
+Cell Origin (M) :     
+Pearson Symbol (M) (max 4 ch.) :    
+Constr :   P
+OCC1  y
+!
+! SHAPE SECTION
+! 
+Shape of Clusters (M) :    
+Diam_max/Edge_max of SPH/QBE (nm) :    
+N_max of SPH/QBE :    
+D_max of PAR/CYL/HEX (nm) :    
+L_max of PAR/CYL/HEX (nm) :    
+N1_max of PAR/CYL/HEX :    
+N2_max of PAR/CYL/HEX :    
+!
+! SAMPLING SECTION
+! 
+Sampling (M) :   One
+Wavelength (M) :    
+2-Theta Max (M) :    
+!
+! TODO SECTION
+! 
+TODO  all_clusters

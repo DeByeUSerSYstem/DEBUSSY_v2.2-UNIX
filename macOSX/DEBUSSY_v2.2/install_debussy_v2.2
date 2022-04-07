@@ -1,0 +1,235 @@
+#!/bin/bash
+SCRIPT_PATH=${0%/*}
+if [ "$0" != "$SCRIPT_PATH" ] && [ "$SCRIPT_PATH" != "" ]; then 
+    cd $SCRIPT_PATH
+fi
+instpath='/usr/local/'
+
+debpath=$(pwd)
+if [[ $debpath != */ ]]; then
+    debpath="$debpath"/
+fi
+
+echo ''
+echo "The debussy installation folder will be "$debpath
+
+
+
+
+binfld=$debpath'bin'
+inclfld=$debpath'incl'
+libfld=$debpath'lib'
+
+srcpath=$debpath'src'
+makepath=$debpath'MAKING_gfortran'
+guipath=$srcpath'/GUI'
+jmol=$debpath'jmol-13.0.8/jmol.sh'
+elibpath=$debpath'extlib'
+lapath=$elibpath'/LAPACK95-lite'
+lcerfpath=$elibpath'/libcerf-1.1'
+nlopath=$elibpath'/nlopt-2.3'
+
+ 
+
+
+echo ' '
+platform=$OSTYPE
+echo '... checking platform : this is a '$platform'-system'
+echo ' '
+
+echo '... current folder is '$(pwd)
+
+
+
+
+
+
+echo ' '
+# if [ "$aw2" == "Y" ] || [ "$aw2" == "y" ] ; then
+    echo 'SETTING UP GUI PART..'
+    echo ' '
+    cd $debpath
+    echo ' ... current folder is '$(pwd)
+    ## setting up GUI
+    gset=$guipath'/gui_settings.py'
+    echo 'GUI settings file is : '$gset
+    cat $guipath/debussy_src_header.txt > $gset
+    echo ' setting up platform'
+    echo "Platform = '$platform'" >> $gset
+    echo "DEB_Version = '2.2'" >> $gset
+    echo ' setting up Paths'
+    echo "DEB_Path = '$debpath'" >> $gset
+    echo "PGM_Path = '$binfld/'" >> $gset
+    echo "GUI_Path = '$guipath/'" >> $gset
+    echo "User_Path = '$HOME/'" >>$gset
+    echo ' setting up Editor'
+    if [[ $platform == linux* ]]; then
+        echo "Editor = 'kate'" >> $gset
+    elif [[ $platform == darwin* ]]; then
+        echo "Editor = '/Applications/TextEdit.app'" >> $gset 
+    elif [[ $platform == win* ]]; then
+        echo "notepad.exe" >> $gset
+    fi
+    echo ' setting up atomistic viewer'
+    echo "AtomViewer = '$jmol'" >> $gset
+
+
+    cd $debpath
+    ## setting up GUI launcher file
+    echo ' setting GUI up application launcher'
+    echo ' '
+    echo " DebUsSy-Suite GUI : debussy-suite_gui"
+    echo ' ' > debussy-suite_gui
+	if [[ $platform == darwin* ]]; then
+    	echo 'pythonw '$guipath'/DebUsSy-Suite_GUI.py'>> debussy-suite_gui
+    else
+		echo 'python '$guipath'/DebUsSy-Suite_GUI.py'>> debussy-suite_gui
+	fi
+    chmod 777 debussy-suite_gui
+
+    cp -p debussy-suite_gui $binfld
+    
+    
+
+
+cd $debpath
+
+echo ' '
+if [ "$debpath" != "$instpath" ]; then
+    estr=''
+    echo ' adding installation folder in the PATH'
+    if [ -e $HOME/.bashrc ]; then
+      fstr=$(fgrep $debpath $HOME/.bashrc)
+      if [ -z "$fstr" ]; then
+        echo '  .bashrc found, updating..'
+        echo 'export PATH='$debpath'bin:$PATH' >> $HOME/.bashrc
+      fi
+    fi
+    if [ -e $HOME/.profile ]; then
+      fstr=$(fgrep $debpath $HOME/.profile)
+      if [ -z "$fstr" ]; then
+        echo '  .profile found, updating..'
+        echo 'export PATH='$debpath'bin:$PATH' >> $HOME/.profile
+      fi
+    fi
+     if [ -e $HOME/.bash_profile ]; then
+      fstr=$(fgrep $debpath $HOME/.bash_profile)
+      if [ -z "$fstr" ]; then
+        echo '  .bash_profile found, updating..'
+        echo 'export PATH='$debpath'bin:$PATH' >> $HOME/.bash_profile
+      fi
+    fi
+fi
+echo ' '
+
+
+	echo ' '
+	echo 'Adding anaconda installation folder in the PATH'
+    if [ -e $HOME/.bashrc ]; then
+      fstr=$(fgrep 'anaconda3' $HOME/.bashrc)
+      if [ -z "$fstr" ]; then
+        echo '  .bashrc found, updating..'
+        echo 'export PATH='$HOME/'opt/anaconda3/bin:$PATH' >> $HOME/.bashrc
+      fi
+    fi
+    if [ -e $HOME/.profile ]; then
+      fstr=$(fgrep 'anaconda3' $HOME/.profile)
+      if [ -z "$fstr" ]; then
+        echo '  .profile found, updating..'
+        echo 'export PATH='$HOME/'opt/anaconda3/bin:$PATH' >> $HOME/.profile
+      fi
+    fi
+     if [ -e $HOME/.bash_profile ]; then
+      fstr=$(fgrep 'anaconda3' $HOME/.bash_profile)
+      if [ -z "$fstr" ]; then
+        echo '  .bash_profile found, updating..'
+        echo 'export PATH='$HOME/'opt/anaconda3/bin:$PATH' >> $HOME/.bash_profile
+      fi
+    fi
+     if [ -e $HOME/.bashrc ]; then
+     source $HOME/.bashrc
+    fi
+    if [ -e $HOME/.profile ]; then
+      source $HOME/.profile
+    fi
+     if [ -e $HOME/.bash_profile ]; then
+      source $HOME/.bash_profile
+    fi
+    
+    echo ' Installing wxpython for anaconda3'
+	pip install -U wxpython
+    
+    
+ echo ' '
+   cd $debpath
+   echo ' In order to copy some libraries in the /usr/* folders you need to provide your User credential'
+  if [ -d /usr/local/lib/ ]; then
+     echo "/usr/local/lib/ already existing"
+  else
+    sudo  mkdir /usr/local/lib/
+ fi
+  tar -cf Debussy_v2.2_ext_database.tar Debussy_v2.2_ext_database
+  sudo mv Debussy_v2.2_ext_database.tar /usr/local/lib/.
+  cd /usr/local/lib/
+  sudo tar -xf  Debussy_v2.2_ext_database.tar
+  sudo rm Debussy_v2.2_ext_database.tar
+  cd $debpath
+   sudo cp ./DYLIB/libcerf.1.dylib /usr/local/lib/.
+   sudo cp ./DYLIB/libcerf.dylib /usr/local/lib/.
+   sudo cp ./DYLIB/libnlopt.0.dylib /usr/local/lib/.
+   sudo cp ./DYLIB/libnlopt.dylib /usr/local/lib/.
+
+  
+  if [ -d /opt/ ]; then
+     echo "/opt/  already existing"
+   else
+   sudo mkdir /opt/
+  fi
+  if [ -d /opt/local/ ]; then
+     echo "/opt/local/  already existing"
+   else
+   sudo mkdir /opt/local/
+  fi
+  if [ -d /opt/local/lib/ ]; then
+     echo "/opt/local/lib/ already existing"
+   else
+   sudo mkdir /opt/local/lib/
+  fi
+  if [ -d /opt/local/lib/libgcc/ ]; then
+     echo "/opt/local/lib/libgcc/ already existing"
+   else
+   sudo mkdir /opt/local/lib/libgcc/
+  fi
+    sudo cp ./DYLIB/libgfortran.3.dylib  /opt/local/lib/libgcc/.
+    sudo cp ./DYLIB/libgfortran.5.dylib  /opt/local/lib/libgcc/.
+    sudo cp ./DYLIB/libquadmath.0.dylib  /opt/local/lib/libgcc/.
+   
+    
+echo ' '
+echo '... DONE!!'
+echo ' binaries and gui files are installed in '$binfld
+echo ' to run any of the installed programs you may just type its name (provided that '$binfld' is in your path)'
+echo ' to run the GUI type ./debussy-suite_gui'
+echo ' '
+if [ "$debpath" != "$instpath" ]; then
+    echo '  provided that you update your command list'
+    if [ -e $HOME/.bashrc ]; then
+      echo '  please type ". ~/.bashrc" in your terminal'
+    fi
+    if [ -e $HOME/.profile ]; then
+      echo '  please type ". ~/.profile" in your terminal'
+    fi
+     if [ -e $HOME/.bash_profile ]; then
+      echo '  please type ". ~/.bash_profile" in your terminal'
+    fi
+fi
+echo ' '
+
+
+
+  
+echo 'BYE BYE'
+echo ' '
+read -rn1
+
+

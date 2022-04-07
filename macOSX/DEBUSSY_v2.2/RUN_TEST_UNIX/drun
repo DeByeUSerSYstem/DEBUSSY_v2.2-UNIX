@@ -1,0 +1,10 @@
+#!/bin/bash
+SCRIPT_PATH=${0%/*}
+if [ "$0" != "$SCRIPT_PATH" ] && [ "$SCRIPT_PATH" != "" ]; then 
+    cd $SCRIPT_PATH
+fi
+MK_CELL_x1.0 
+MK_BALL_x1.0 
+Debussy Fe3O4.dwa
+read -rn1
+

@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+
+import sys
+import numpy as np
+
+fname='/Users/rug/WORK/SW/DEBUSSY/VS/ext_database/SpaceGroups/SG_Centering.txt'
+fnew='/Users/rug/WORK/SW/DEBUSSY/VS/ext_database/SpaceGroups/SG_PS.txt'
+fnew2='/Users/rug/WORK/SW/DEBUSSY/VS/ext_database/SpaceGroups/SG_Centering_PS.txt'
+
+slist=('a','m','o','t','h','h','c')
+nx=(2,15,74,142,167,194,230)
+
+fin=open(fname,'r')
+fl=fin.readlines()
+fin.close()
+
+sgn=np.empty(len(fl))
+line,sgs,lfl=[],[],[]
+for k in xrange(1,len(fl)):
+    lfl+=[len(fl[k])]
+    rline=fl[k].split()
+    line+=[rline]
+    sgn[k-1]=int(rline[0])
+    sgs+=[rline[2]]
+    print k,sgn[k-1],sgs[k-1],sgs[k-1][0]
+
+k=0
+
+ps=[]
+for j in xrange(len(slist)):
+    if j==0:
+        for jj in xrange(0,nx[j]):
+            k+=1
+            ik=np.argwhere(sgn==k).flatten()
+            for kk in xrange(len(ik)): 
+                ps+=[slist[j]+sgs[ik[kk]][0]]
+            ps0=slist[j]+sgs[ik[0]][0]
+            print j, jj, k, slist[j],'%10s %3s %3s'%(sgs[ik[0]],sgs[ik[0]][0], ps0)
+
+    else:
+        for jj in xrange(nx[j-1],nx[j]):
+            k+=1
+            ik=np.argwhere(sgn==k).flatten()
+            for kk in xrange(len(ik)): 
+                ps+=[slist[j]+sgs[ik[kk]][0]]
+            ps0=slist[j]+sgs[ik[0]][0]
+            print j, jj, k, slist[j], '%10s %3s %3s'%(sgs[ik[0]],sgs[ik[0]][0], ps0)
+
+
+fout=open(fnew,'w')
+for i in xrange(len(fl)-1):
+    print >> fout, '%8i  %-12s  %-8s'%(sgn[i],sgs[i],ps[i])
+fout.close()
+
+ml=max(lfl)
+fout=open(fnew2,'w')
+print >> fout, fl[0].rstrip()
+for i in xrange(len(fl)-1):
+    b=ml-lfl[i]
+    bs=' '*b
+    print sgn[i], ml, lfl[i], b, len(bs)
+    print >> fout, fl[i+1].rstrip()+'%s%6s'%(bs,ps[i])
+fout.close()
+
+
+
+exit()

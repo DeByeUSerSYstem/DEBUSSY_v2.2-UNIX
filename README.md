@@ -15,7 +15,7 @@ Code
 
 The source code of the program can be found [here](UNIX).
 
-For instructions to compile the program suite for UNIX systems please check the file [Compiling%20the%20Debussy%20Suite%20on%20UNIX%20systems%20with%20Anaconda.pdf.pdf](How2install/Compiling%20the%20Debussy%20Suite%20on%20UNIX%20systems%20with%20Anaconda.pdf).
+For instructions to compile the program suite for UNIX systems please check the file [Compiling_UNIX_with_Anaconda.pdf](How2install/Compiling_UNIX_with_Anaconda.pdf).
 
 
 MacOSX

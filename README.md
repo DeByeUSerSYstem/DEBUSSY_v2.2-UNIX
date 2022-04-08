@@ -13,9 +13,9 @@ INSTALLATION
 Code
 ------
 
-The source code of the program can be found [here](DEBUSSY_v2.2-UNIX/UNIX/).
+The source code of the program can be found [here](UNIX).
 
-For instructions to compile the program suite for UNIX systems please check the file [Compiling the Debussy Suite on UNIX systems with Anaconda.pdf](How2install/Compiling the Debussy Suite on UNIX systems with Anaconda.pdf).
+For instructions to compile the program suite for UNIX systems please check the file [Compiling&the&Debussy&Suite&on&UNIX&systems&with&Anaconda.pdf](How2install/Compiling&the&Debussy&Suite&on&UNIX&systems&with&Anaconda.pdf).
 
 
 MacOSX

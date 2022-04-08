@@ -1,0 +1,27 @@
+im_w_of_x.lo: im_w_of_x.c cerf.h \
+ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/complex.h \
+ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h \
+ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_symbol_aliasing.h \
+ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_posix_availability.h \
+ /opt/local/lib/gcc6/gcc/x86_64-apple-darwin18/6.5.0/include-fixed/math.h \
+ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
+ /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h \
+ defs.h
+
+cerf.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/complex.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_symbol_aliasing.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_posix_availability.h:
+
+/opt/local/lib/gcc6/gcc/x86_64-apple-darwin18/6.5.0/include-fixed/math.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h:
+
+defs.h:

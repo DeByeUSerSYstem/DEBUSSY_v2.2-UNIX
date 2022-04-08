@@ -1,0 +1,6 @@
+deprecated.lo: deprecated.c nlopt.h \
+ /opt/local/lib/gcc6/gcc/x86_64-apple-darwin18/6.5.0/include/stddef.h
+
+nlopt.h:
+
+/opt/local/lib/gcc6/gcc/x86_64-apple-darwin18/6.5.0/include/stddef.h:

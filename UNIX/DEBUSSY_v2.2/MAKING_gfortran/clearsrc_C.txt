@@ -1,0 +1,8 @@
+#!/bin/bash
+
+N=0
+while read LINE ; do
+	N=$((N+1))
+	echo "Line $N = $LINE"
+	rm $LINE'.f90'
+done < listsrc_C.txt

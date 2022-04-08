@@ -1,0 +1,12 @@
+#!/bin/bash
+
+srcdir='../src/Debussy-src/'
+cp $srcdir'local_system.inc' .
+N=0
+while read LINE ; do
+        N=$((N+1))
+        echo "Line $N = $LINE : copy here"
+        cp $srcdir$LINE'.f90' .
+done < listsrc_D.txt
+
+

@@ -1,0 +1,89 @@
+#
+# Makefile for Libraries of Routines and utilities for Debussy and its library
+#
+#
+################################ MODIFY THE FOLLOWING IF NEEDED ##############
+#
+LIBDIRMAIN = ../lib
+MODDIRMAIN = ../incl
+#
+DIRMODNANO = $(MODDIRMAIN)
+MODNANO = -I$(MODDIRMAIN)/
+#
+LIBDIR = ../lib
+MODDIR = ../incl
+#
+###############################################################################
+# object files
+#
+OBJS = GROUND.o ATOMX.o FORSAMP.o SPECTYPES.o SPECF.o UTILITY.o LINALTO.o \
+input_var.o main_input.o db_nano.o obs_nano.o struc_nano.o param_nano.o \
+work_space.o calcfun_db2.o REFTOOLS_FUN.o REFINEM_Deb.o 
+SRCS = GROUND.f90 ATOMX.f90 FORSAMP.f90 SPECTYPES.f90 SPECF.f90 UTILITY.f90 LINALTO.f90 \
+input_var.f90 main_input.f90 db_nano.f90 obs_nano.f90 struc_nano.f90 param_nano.f90 \
+work_space.f90 calcfun_db2.f90 REFTOOLS_FUN.f90 REFINEM_Deb.f90 
+#
+#
+# libraries
+include extlib.inc
+LIBUSE = -lblas -L$(LIBDIR) -lDebussy $(LIB3) $(LIB2) $(LIB1)
+INCUSE = -I$(INCLDIREXT1)
+#
+#
+IOPT =  -I$(MODDIR) $(INCUSE)
+FCOM = gfortran
+# two optional compilation modes
+FSAF = -fbounds-check -fbacktrace -finit-local-zero -fexternal-blas -lblas $(IOPT)
+FFAS = -O3 -floop-nest-optimize -finit-local-zero -fexternal-blas -lblas $(IOPT)
+################### CHOOSE BETWEEN FAST AND SAFE (DEBUG) FLAGS ################
+include comphow.inc
+###############################################################################
+LOPT = $(LIBUSE)
+.SUFFIXES: .f90 .mod $(SUFFIXES)
+#
+.f90.o:
+	$(FCOM) $(FOPT) -c $<  2>> err.log
+#.f90.mod:
+#	$(FCOM) $(FOPT) -c $<  2>> err.log
+#
+#
+libDebussy.a: REFINEM_Deb.o REFTOOLS_FUN.o FORSAMP.o calcfun_db2.o UTILITY.o $(SRCS)
+	ar cr $@ $(OBJS)
+	ranlib $@
+	cp $@ ../lib/
+#
+Debussy: Debussy.o libDebussy.a
+	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+#
+#
+install: Debussy libDebussy.a
+	mv *.a $(LIBDIR)
+	mv *.mod $(MODDIR)
+clean:
+	rm *.o
+libclean:
+	rm $(LIBDIR)/*.a
+modclean:
+	rm *.mod
+# dependencies
+# dependencies
+#
+GROUND.o: GROUND.f90
+SPECTYPES.o: SPECTYPES.f90 GROUND.o
+SPECF.o: SPECF.f90 GROUND.o
+UTILITY.o: UTILITY.f90 SPECF.o
+QUADCONV.o: QUADCONV.f90 GROUND.o
+LINALTO.o: LINALTO.f90 GROUND.o SPECTYPES.o SPECF.o
+ATOMX.o: ATOMX.f90 GROUND.o LINALTO.o
+FORSAMP.o: FORSAMP.f90 ATOMX.o GROUND.o
+input_var.o: input_var.f90 SPECTYPES.o
+main_input.o: main_input.f90 input_var.o ATOMX.o
+db_nano.o: db_nano.f90 main_input.o input_var.o ATOMX.o
+obs_nano.o: obs_nano.f90 main_input.o 
+struc_nano.o: struc_nano.f90 main_input.o 
+param_nano.o: param_nano.f90 struc_nano.o obs_nano.o db_nano.o main_input.o input_var.o LINALTO.o
+work_space.o: work_space.f90 param_nano.o struc_nano.o obs_nano.o db_nano.o main_input.o input_var.o LINALTO.o
+calcfun_db2.o: calcfun_db2.f90 work_space.o LINALTO.o
+REFTOOLS_FUN.o: REFTOOLS_FUN.f90 work_space.o LINALTO.o GROUND.o
+REFINEM_Deb.o: REFINEM_Deb.f90 REFTOOLS_FUN.o calcfun_db2.o work_space.o GROUND.o
+PROFI.o: PROFI.f90 SPECF.o QUADCONV.o GROUND.o LINALTO.o

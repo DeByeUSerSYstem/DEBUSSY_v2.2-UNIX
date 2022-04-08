@@ -1,0 +1,302 @@
+#!/bin/bash
+
+instpath='/usr/local/'
+
+debpath=$(pwd)
+if [[ $debpath != */ ]]; then
+    debpath="$debpath"/
+fi
+
+echo ''
+qst01="Please type the installation folder"
+qst02="'bin' 'incl' and 'lib' subfolders will be created if not yet existing"
+echo $qst01
+echo $qst02
+read -e aw0
+
+if [ "$aw0" != "" ]; then
+    pgmpath=$aw0
+    echo 'installation folder is  : '$pgmpath
+else
+#     echo 'path not given - STOP -i'
+    echo 'installation folder is default path : '$instpath
+    pgmpath=$instpath
+fi
+
+if [[ $pgmpath != */ ]]; then
+    pgmpath="$pgmpath"/
+fi
+
+
+binfld=$pgmpath'bin'
+inclfld=$pgmpath'incl'
+libfld=$pgmpath'lib'
+
+srcpath=$debpath'src'
+makepath=$debpath'MAKING_gfortran'
+guipath=$srcpath'/GUI'
+jmol=$debpath'jmol-13.0.8/jmol.sh'
+elibpath=$debpath'extlib'
+lapath=$elibpath'/LAPACK95-lite'
+lcerfpath=$elibpath'/libcerf-1.5/lib/.libs'
+lcerfpath2=$elibpath'/libcerf-1.5'
+nlopath=$elibpath'/nlopt-2.4.2/.libs'
+nlopath2=$elibpath'/nlopt-2.4.2'
+
+
+if [ -d $pgmpath ]; then
+    echo $pgmpath' exists'
+else
+    echo $pgmpath' does not exists - STOP -'
+    exit
+fi
+if [ -d $srcpath ]; then
+    echo $srcpath' exists'
+else
+    echo $srcpath' does not exists - STOP -'
+    exit
+fi
+if [ -d $libfld ]; then
+    echo $libfld' exists'
+else
+    echo $libfld' does not exists, making ..'
+    mkdir $libfld
+fi
+if [ -d $inclfld ]; then
+    echo $inclfld' exists'
+else
+    echo $inclfld' does not exists, making ..'
+    mkdir $inclfld
+fi
+if [ -d $binfld ]; then
+    echo $binfld' exists'
+else
+    echo $binfld' does not exists, making ..' 
+    mkdir $binfld
+fi
+
+echo ' '
+qst1='Install external libraries LAPACK (link only), LIBCERF, NLOPT (sudo credentials required)  [Y / N] :  '
+echo -n $qst1
+read aw1
+# echo $aw1
+if [ "$aw1" == "N" ] || [ "$aw1" == "n" ] ; then
+    echo '... your answer is '$aw1': OK, I will skip this part'
+fi
+echo ' '
+qst2='Install GUI  ("GUI" folder must be in "src" folder) [Y / N] :  '
+echo -n $qst2
+read aw2
+# echo $aw2
+if [ "$aw2" == "N" ] || [ "$aw2" == "n" ] ; then
+    if [ "$aw1" == "N" ] || [ "$aw1" == "n" ] ; then
+        echo '... your answer is '$aw2': OK, I will skip also this part'
+    else
+        echo '... your answer is '$aw2': OK, I will skip this part'
+    fi
+fi
+
+echo ' '
+platform=$OSTYPE
+echo '... checking platform : this is a '$platform'-system'
+echo ' '
+
+echo '... current folder is '$(pwd)
+
+
+qst4='Download lapack and blas libraries from system repositories? (an active internet connection is required) [Y / N]'
+if [ "$aw1" == "Y" ] || [ "$aw1" == "y" ] && [ "$platform" == "linux-gnu" ] ; then
+    echo -n $qst4
+    read aw4
+    if [ "$aw4" == "Y" ] || [ "$aw4" == "y" ] ; then
+        echo '... your answer is '$aw4
+        echo 'Downloading lapack and blas libraries from system repositories ... '
+        echo ' '
+        echo 'LAPACK'
+        sudo apt-get install liblapack3gf
+        sudo apt-get install libatlas3-base
+        sudo apt-get install liblapacke
+        sudo apt-get install liblapack3
+        sudo apt-get install liblapack-dev
+        echo ' '
+        echo 'LIBBLAS'
+        sudo apt-get install libblas3
+        sudo apt-get install libblas3gf
+        sudo apt-get install libopenblas-dev
+        sudo apt-get install libgsl0-dbg
+        sudo apt-get install libtool
+        echo ' '
+    fi
+fi
+
+
+echo 'moving to MAKING folder'
+cd $makepath
+echo ' ... current folder is '$(pwd)
+echo "LIBDIREXT1 = "$lcerfpath > extlib.inc
+echo "LIBDIREXT2 = "$nlopath >> extlib.inc
+echo "LIBDIREXT3 = "$lapath >> extlib.inc
+echo "INCLDIREXT1 = "$lapath"/lapack95_modules" >> extlib.inc
+echo "####" >> extlib.inc
+echo 'LIB1 = -L$(LIBDIREXT1) -lcerf' >> extlib.inc
+echo 'LIB2 = -L$(LIBDIREXT2) -lm -lnlopt' >> extlib.inc
+echo 'LIB3 = -L$(LIBDIREXT3) -llapack95 -llapack -lblas' >> extlib.inc
+sleep 1
+
+
+if [ "$aw1" == "Y" ] || [ "$aw1" == "y" ] ; then
+    echo 'COMPILING EXTERNAL LIBRARIES ...'
+    echo ' '
+    echo 'LAPACK'
+    cd $lapath
+    echo ' ... current folder is '$(pwd)
+    sh doall.sh
+    echo ' '
+    echo 'LIBCERF'
+    cd $lcerfpath2
+    echo ' ... current folder is '$(pwd)
+    ./configure
+    make
+    sudo make install
+    echo ' '
+    echo 'NLOPT'
+    cd $nlopath2 
+    echo ' ... current folder is '$(pwd)
+    ./configure --enable-shared
+    make
+    sudo make install
+    echo ' '
+  if [ "$platform" == "linux-gnu" ] ; then
+    echo 'Creating symbolic links for libcerf ... '
+    sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so.1
+    sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so.1.0.1
+    sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so
+    sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.la
+    sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so.1
+  fi
+fi
+
+
+
+echo ' '
+echo  'COMPILING DebUsSy FILES ...'
+echo ' '
+cd $makepath
+echo ' ... current folder is '$(pwd)
+
+sed -e "s:.*debpath=.*:debpath='$debpath':g" doall_Debussy.sh > doall_Debussy.new
+sed -e "s:.*pgmpath=.*:pgmpath='$pgmpath':g" doall_Debussy.new > doall_Debussy.sh
+sleep 1
+rm doall_Debussy.new
+
+
+sh  doall_Debussy.sh
+
+echo ' '
+if [ "$aw2" == "Y" ] || [ "$aw2" == "y" ] ; then
+    echo 'SETTING UP GUI PART..'
+    echo ' '
+    cd $debpath
+    echo ' ... current folder is '$(pwd)
+    ## setting up GUI
+    gset=$guipath'/gui_settings.py'
+    echo 'GUI settings file is : '$gset
+    cat $guipath/debussy_src_header.txt > $gset
+    echo ' setting up platform'
+    echo "Platform = '$platform'" >> $gset
+    echo "DEB_Version = '2.2'" >> $gset
+    echo ' setting up Paths'
+    echo "DEB_Path = '$debpath'" >> $gset
+    echo "PGM_Path = '$binfld/'" >> $gset
+    echo "GUI_Path = '$guipath/'" >> $gset
+    echo "User_Path = '$HOME/'" >>$gset
+    echo ' setting up Editor'
+    if [[ $platform == linux* ]]; then
+        echo "Editor = 'kate'" >> $gset
+    elif [[ $platform == darwin* ]]; then
+        echo "Editor = '/Applications/TextEdit.app'" >> $gset 
+    elif [[ $platform == win* ]]; then
+        echo "notepad.exe" >> $gset
+    fi
+    echo ' setting up atomistic viewer'
+    echo "AtomViewer = '$jmol'" >> $gset
+
+
+    cd $debpath
+    ## setting up GUI launcher file
+    echo ' setting GUI up application launcher'
+    echo ' '
+    echo " DebUsSy-Suite GUI : debussy-suite_gui"
+    echo ' ' > debussy-suite_gui
+	if [[ $platform == darwin* ]]; then
+    	echo 'pythonw '$guipath'/DebUsSy-Suite_GUI.py'>> debussy-suite_gui
+    else
+		echo 'python '$guipath'/DebUsSy-Suite_GUI.py'>> debussy-suite_gui
+	fi
+    chmod 777 debussy-suite_gui
+
+    cp -p debussy-suite_gui $binfld
+fi
+
+
+
+if [ -s err1.log ] || [ -s err2.log ] ; then 
+    echo ' Something went wrong during the src compilation... BYE BYE!!!'
+    echo ' '
+exit 0
+fi  
+
+
+
+cd $debpath
+
+echo ' '
+if [ "$pgmpath" != "$instpath" ]; then
+    estr=''
+    echo ' adding installation folder in the PATH'
+    if [ -e $HOME/.bashrc ]; then
+      fstr=$(fgrep $pgmpath $HOME/.bashrc)
+      if [ -z "$fstr" ]; then
+        echo '  .bashrc found, updating..'
+        echo 'export PATH='$pgmpath'bin:$PATH' >> $HOME/.bashrc
+      fi
+    fi
+    if [ -e $HOME/.profile ]; then
+      fstr=$(fgrep $pgmpath $HOME/.profile)
+      if [ -z "$fstr" ]; then
+        echo '  .profile found, updating..'
+        echo 'export PATH='$pgmpath'bin:$PATH' >> $HOME/.profile
+      fi
+    fi
+    if [ -e $HOME/.bash_profile ]; then
+      fstr=$(fgrep $pgmpath $HOME/.bash_profile)
+      if [ -z "$fstr" ]; then
+        echo '  .profile found, updating..'
+        echo 'export PATH='$pgmpath'bin:$PATH' >> $HOME/.bash_profile
+      fi
+    fi
+fi
+echo ' '
+
+
+echo '... DONE!!'
+echo ' binaries and gui files are installed in '$binfld
+echo ' to run any of the installed programs you may just type its name (provided that '$binfld' is in your path)'
+echo ' to run the GUI type ./debussy-suite_gui'
+echo ' '
+if [ "$pgmpath" != "$instpath" ]; then
+    echo '  provided that you update your command list'
+    if [ -e $HOME/.bashrc ]; then
+      echo '  please type ". ~/.bashrc" in your terminal'
+    fi
+    if [ -e $HOME/.profile ]; then
+      echo '  please type ". ~/.profile" in your terminal'
+    fi
+fi
+echo ' '
+
+echo 'BYE BYE'
+echo ' '
+exit
+
+

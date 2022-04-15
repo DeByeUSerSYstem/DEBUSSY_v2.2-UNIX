@@ -26,7 +26,7 @@ import glob
 from shutil import copy2 as shutil_copy2
 import numpy as np
 import matplotlib
-#matplotlib.use('WXAgg')
+matplotlib.use('WXAgg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from readerC import reader

@@ -167,12 +167,13 @@ if [ "$aw1" == "Y" ] || [ "$aw1" == "y" ] ; then
     sudo make install
     echo ' '
   if [ "$platform" == "linux-gnu" ] ; then
-    echo 'Creating symbolic links for libcerf ... '
+    echo 'Creating symbolic links for libcerf & nlopt ... '
     sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so.1
     sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so.1.0.1
     sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so
     sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.la
     sudo ln -s /usr/local/lib/libcerf.so.1 /usr/lib/libcerf.so.1
+    sudo ln -s /usr/local/lib/libnlopt.so.0 /usr/lib/libnlopt.so.0
   fi
 fi
 

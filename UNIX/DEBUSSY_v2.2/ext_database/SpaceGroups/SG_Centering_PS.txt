@@ -198,8 +198,8 @@
    163     1   P-31c        SPG_grp/SG_Nr_163.grp       hP
    164     1   P-3m1        SPG_grp/SG_Nr_164.grp       hP
    165     1   P-3c1        SPG_grp/SG_Nr_165.grp       hP
-   166     3   R-3m         SPG_grp/SG_Nr_166_sH.grp    hR
-   166     1   R-3m         SPG_grp/SG_Nr_166_sR.grp    hP
+   166     3   R-3m         SPG_grp/SG_Nr_166_sH.grp    hP
+   166     1   R-3m         SPG_grp/SG_Nr_166_sR.grp    hR
    167     3   R-3c         SPG_grp/SG_Nr_167_sH.grp    hP
    167     1   R-3c         SPG_grp/SG_Nr_167_sR.grp    hR
    168     1   P6           SPG_grp/SG_Nr_168.grp       hP

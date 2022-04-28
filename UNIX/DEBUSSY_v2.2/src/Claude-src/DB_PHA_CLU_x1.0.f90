@@ -517,7 +517,7 @@ endif
  !   pha_pos = index(phase_path(1:llp),'.pha',.true.)
   !  pha = trim(adjustl(Pha_name(1:pha_pos-1)))
     cel_name = phase_path(1:llp-4)//'.cel'
-
+   close(ilogout)
    
  ilogpha = FIND_UNIT()
  if (.not.mol_exist) then

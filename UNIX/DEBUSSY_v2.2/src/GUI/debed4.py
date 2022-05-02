@@ -2020,7 +2020,13 @@ class ButtonsPanel(wx.Panel):
 #                 elif self.cbsqrtI.GetValue() == True: what += '_sqrtI'
                 if self.cbhkl.GetValue() == True: what = what + '_hkl'
                 #plotter(input_file, what)
-                cmd = ['pythonw', gset.GUI_Path + 'plotterC.py', input_file, what]
+                if gset.Platform[:3].lower() == 'lin': 
+                    cmd = ['python3', gset.GUI_Path + 'plotterC.py', input_file, what]
+                elif gset.Platform[:3].lower() == 'dar':
+      	            cmd = ['pythonw', gset.GUI_Path + 'plotterC.py', input_file, what]
+                elif gset.Platform[:3].lower() == 'win':
+                    cmd = ['python', gset.GUI_Path + 'plotterC.py', input_file, what]  
+                #cmd = ['pythonw', gset.GUI_Path + 'plotterC.py', input_file, what]
                 plot_proc = subprocess.Popen(cmd)
             thread = threading.Thread(target = self.ref_run, args = (job_type, input_file, stop_flag, buffer_name, button, label, what, ))
             thread.setDaemon(True)

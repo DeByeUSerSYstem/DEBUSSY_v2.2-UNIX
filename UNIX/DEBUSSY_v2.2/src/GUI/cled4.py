@@ -1575,7 +1575,13 @@ class ButtonsPanel(wx.Panel):
             if self.cbhkl.GetValue() == True: what = what + '_hkl'
 #             cmd = ['python', os.path.abspath(gset.GUI_Path) + "plotterC.py", fs, what]
             ##__HERE AND/OR ELSEWHERE THE PYTHON/PYTHONW SHOULD BE FIXED !!!!
-            cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
+            if gset.Platform[:3].lower() == 'lin': 
+                cmd = ['python3', gset.GUI_Path + "plotterC.py", fs, what]
+            elif gset.Platform[:3].lower() == 'dar':
+      	        cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
+            elif gset.Platform[:3].lower() == 'win':
+                cmd = ['python', gset.GUI_Path + "plotterC.py", fs, what]  
+            #cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
             proc  =  subprocess.Popen(cmd)
 
     ##__Custom plot

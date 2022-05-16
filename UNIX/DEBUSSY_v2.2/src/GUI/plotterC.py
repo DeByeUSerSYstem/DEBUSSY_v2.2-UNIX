@@ -20,13 +20,12 @@
 #
 #===================================================================================================
 import sys
-import os.path
+import os
 import time
 import glob
 from shutil import copy2 as shutil_copy2
 import numpy as np
 import matplotlib
-matplotlib.use('WXAgg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from readerC import reader
@@ -36,6 +35,7 @@ from debfuncx import phase_from_tqi
 import matplotlib.scale as mscale
 import matplotlib.transforms as mtransforms
 import matplotlib.ticker as ticker
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 ##########################################################################################
 
 ##----------------------------------------------------------------------------------------
@@ -61,6 +61,7 @@ bcolor=['b','y']
 lcolor=['r','g','b','c','m','k','y']
 ##########################################################################################
 
+if gset.Platform[:3].lower() != 'win': matplotlib.use('WXAgg')
 
 
 class SquareRootScale(mscale.ScaleBase):
@@ -213,12 +214,11 @@ class plotter:
         Returns a Intensity vs. 2theta/q/d plot of calculated diffraction intensity of atomic clusters.
         '''    
         toplot = False
-        plt.figure()
+        fig = plt.figure()
+        axes = plt.axes()
         ax=plt.subplot(111)
-#        fig = plt.figure()
         fl = fins.split()
         points_with_annotation = []
-#        axes = plt.axes()
         nfl = len(fl)
         xvall, yvall, wl_all, color1 = [], [], [], []
         for c in range(nfl):
@@ -403,7 +403,9 @@ class plotter:
         
         ndat = dwaobj.ndataset
         nstr = dwaobj.nstructure
-    
+        fig = plt.figure()
+        axes = plt.axes()
+        ax = plt.subplot(111)
         for i in range(ndat):
             dat = dwaobj.dwainfo['data%i'%(i+1)].rpartition(gv.SEP)[-1]
             #print(dat)
@@ -424,8 +426,7 @@ class plotter:
                 elif 'ref' in varx:
                     print(">>>>>   Error: can\'t find file %s or read data    <<<<<"%(dwaobj.dwainfo['bestcal%i'%(i+1)]))
             else:
-                fig = plt.figure()
-                ax = plt.subplot(111)
+
                 liny = True
                 imin = []
                 if '_q' in varx:
@@ -503,7 +504,7 @@ class plotter:
                 if '_hkl' in varx:
                     hklxall = self.get_hkl(dwaobj,ftype='.hkl',xtype=svarx)
                     hklx = hklxall[i]
-                    axes = plt.axes()
+
                     points_with_annotation = []
                     ymin = min(imin)
                     yplot = ax.get_ylim()
@@ -813,6 +814,8 @@ class plotter:
                     #sc1 = ax1.pcolor(b,h,nf,edgecolors = 'none',cmap = plt.cm.spectral)
                     im1 = ax1.imshow(nf, cmap = plt.cm.Spectral_r,
                                extent = [0, max(col[7]), 0, max(col[8])], alpha=1., interpolation='nearest')
+                    #divider = make_axes_locatable(ax1)
+                    #cax1 = divider.append_axes("right", size="5%", pad=0.05)   
                     plt.colorbar(im1)
                     #xticklabels =ax1.get_xticklabels()
                     #plt.setp(xticklabels, visible=False)

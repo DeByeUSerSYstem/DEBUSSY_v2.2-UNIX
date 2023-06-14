@@ -35,36 +35,61 @@ jobs:
       - name: Install building requirements
         run: |
           sudo apt-get update && \
-          sudo apt-get install -y \
-            gfortran \
-            libatlas3-base \
-            libblas3 \
-            libblas3gf \
-            libcerf-dev \
-            libgsl0-dbg \
-            liblapack-dev \
-            liblapack3 \
-            liblapack3gf \
-            liblapacke \
-            libnlopt-dev \
-            libopenblas-dev \
-            libtool
+          sudo apt-get install -y tree gfortran # && \
+          # sudo apt-get install -y \
+          #   libatlas3-base \
+          #   libblas3 \
+          #   libblas3gf \
+          #   libcerf-dev \
+          #   libgsl0-dbg \
+          #   liblapack-dev \
+          #   liblapack3 \
+          #   liblapack3gf \
+          #   liblapacke \
+          #   libnlopt-dev \
+          #   libopenblas-dev \
+          #   libtool
 
       - name: Build
         run: |
           set -vxeuo pipefail
+
           cd UNIX/DEBUSSY_v2.2/
           DEBUSSY_SRC_DIR="$PWD"
           DEBUSSY_TARGET_DIR="/tmp/debussy"
 
-          # Build extlib
+          # Build extlib:
           cd extlib/LAPACK95-lite/
           ./doall.sh
           git status
 
-          # Build DEBUSSY
+          # Build DEBUSSY:
           cd ${DEBUSSY_SRC_DIR}
           mkdir -v -p ${DEBUSSY_TARGET_DIR}
-          # Install external libraries LAPACK (link only), LIBCERF, NLOPT (sudo credentials required) [Y / N] :n
-          # Install GUI ("GUI" folder must be in "src" folder) [Y / N] :y
-          echo -e "/tmp/debussy\nn\ny" | ./install_debussy_v2.2
+
+          # Answers to the installation script:
+          #   installation folder is  : /tmp/debussy
+          #   /tmp/debussy/ exists
+          #   /home/vagrant/src/DEBUSSY_v2.2-UNIX/UNIX/DEBUSSY_v2.2/src exists
+          #   /tmp/debussy/lib exists
+          #   /tmp/debussy/incl exists
+          #   /tmp/debussy/bin exists
+
+          #   Install external libraries LAPACK (link only), LIBCERF, NLOPT (sudo credentials required) [Y / N] :
+          #   Install GUI ("GUI" folder must be in "src" folder) [Y / N] :
+          #   ... checking platform : this is a linux-gnu-system
+
+          #   ... current folder is /home/vagrant/src/DEBUSSY_v2.2-UNIX/UNIX/DEBUSSY_v2.2
+          #   Download lapack and blas libraries from system repositories? (an active internet connection is required) [Y / N]... your answer is y
+          #   Downloading lapack and blas libraries from system repositories ...
+          echo -e "/tmp/debussy\ny\ny\ny\n" | ./install_debussy_v2.2
+
+          # Check the resulting files:
+          ls -alF ${DEBUSSY_TARGET_DIR}
+          tree -aF ${DEBUSSY_TARGET_DIR}
+          ldd ${DEBUSSY_TARGET_DIR}/bin/Debussy
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: debussy-build
+          path: /tmp/debussy/

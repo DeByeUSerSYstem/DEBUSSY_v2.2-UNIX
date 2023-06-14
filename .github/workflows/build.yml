@@ -35,12 +35,11 @@ jobs:
       - name: Install building requirements
         run: |
           sudo apt-get update && \
-          sudo apt-get install -y tree gfortran # && \
-          # sudo apt-get install -y \
+          sudo apt-get install -y tree gfortran && \
+          sudo apt-get install -y libcerf-dev
           #   libatlas3-base \
           #   libblas3 \
           #   libblas3gf \
-          #   libcerf-dev \
           #   libgsl0-dbg \
           #   liblapack-dev \
           #   liblapack3 \

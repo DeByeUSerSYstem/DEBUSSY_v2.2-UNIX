@@ -91,5 +91,5 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: debussy-build
+          name: debussy-build-py${{ matrix.python-version }}
           path: /tmp/debussy/

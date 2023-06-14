@@ -34,7 +34,21 @@ jobs:
 
       - name: Install building requirements
         run: |
-          sudo apt-get update && sudo apt-get install -y gfortran libcerf-dev libnlopt-dev
+          sudo apt-get update && \
+          sudo apt-get install -y \
+            gfortran \
+            libatlas3-base \
+            libblas3 \
+            libblas3gf \
+            libcerf-dev \
+            libgsl0-dbg \
+            liblapack-dev \
+            liblapack3 \
+            liblapack3gf \
+            liblapacke \
+            libnlopt-dev \
+            libopenblas-dev \
+            libtool
 
       - name: Build
         run: |

@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '00 4 * * *'  # daily at 4AM
+
+jobs:
+  run_build:
+    # pull requests are a duplicate of a branch push if within the same repo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+
+    name: Build DEBUSSY with with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+      fail-fast: false
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Set env vars
+        run: |
+          export REPOSITORY_NAME=${GITHUB_REPOSITORY#*/}  # just the repo, as opposed to org/repo
+          echo "REPOSITORY_NAME=${REPOSITORY_NAME}" >> $GITHUB_ENV
+
+      - name: Checkout the code
+        uses: actions/checkout@v3
+
+      - name: Install building requirements
+        run: |
+          sudo apt-get update && sudo apt-get install -y gfortran-9
+          sudo ln -sv /usr/bin/gfortran-9 /usr/bin/gfortran
+
+      - name: Build
+        run: |
+          set -vxeuo pipefail
+          cd UNIX/DEBUSSY_v2.2/
+          mkdir -v -p /tmp/debussy/
+          # Install external libraries LAPACK (link only), LIBCERF, NLOPT (sudo credentials required) [Y / N] :n
+          # Install GUI ("GUI" folder must be in "src" folder) [Y / N] :y
+          echo -e "/tmp/debussy\nn\ny" | ./install_debussy_v2.2

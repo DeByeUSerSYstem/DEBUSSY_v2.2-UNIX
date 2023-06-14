@@ -35,7 +35,7 @@ jobs:
       - name: Install building requirements
         run: |
           sudo apt-get update && sudo apt-get install -y gfortran-9
-          sudo ln -sv /usr/bin/gfortran-9 /usr/bin/gfortran
+          sudo ln -svf /usr/bin/gfortran-9 /usr/bin/gfortran
 
       - name: Build
         run: |

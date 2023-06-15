@@ -88,6 +88,12 @@ jobs:
           tree -aF ${DEBUSSY_TARGET_DIR}
           ldd ${DEBUSSY_TARGET_DIR}/bin/Debussy
 
+      - name: Testing
+        run: |
+          set -vxeuo pipefail
+          cd UNIX/RUN_TEST_UNIX/
+          echo -e "\n" | bash ./drun
+
       - uses: actions/upload-artifact@v3
         with:
           name: debussy-build-py${{ matrix.python-version }}

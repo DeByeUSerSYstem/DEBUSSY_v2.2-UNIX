@@ -27,7 +27,7 @@ INCUSE = -I$(INCLDIREXT1)
 #
 #
 IOPT =  -I$(MODDIR) $(INCUSE)
-FC = gfortran
+FC ?= gfortran
 # two optional compilation modes
 FSAF = -fbounds-check -fbacktrace -finit-local-zero -fexternal-blas -lblas $(IOPT)
 FFAS = -O3 -finit-local-zero -fexternal-blas -lblas $(IOPT)

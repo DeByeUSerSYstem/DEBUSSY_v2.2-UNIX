@@ -27,7 +27,7 @@ INCUSE = -I$(INCLDIREXT1)
 #
 #
 IOPT =  -I$(MODDIR) $(INCUSE)
-FCOM = gfortran
+FC = gfortran
 # two optional compilation modes
 FSAF = -fbounds-check -fbacktrace -finit-local-zero -fexternal-blas -lblas $(IOPT)
 FFAS = -O3 -finit-local-zero -fexternal-blas -lblas $(IOPT)
@@ -38,54 +38,54 @@ LOPT = $(LIBUSE)
 .SUFFIXES: .f90 .mod $(SUFFIXES)
 #
 .f90.o:
-	$(FCOM) $(FOPT) -c $<  2>> err.log
+	$(FC) $(FOPT) -c $<  2>> err.log
 #
 #
 ##
 DB_PHA_CLU_x1.0: DB_PHA_CLU_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_CELL_x1.0: MK_CELL_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_SPHERE_x1.0: MK_SPHERE_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_BALL_x1.0: MK_BALL_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_RODS_x1.0: MK_RODS_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_LAYER_GEN_x1.0: MK_LAYER_GEN_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_COSH_x1.0: MK_COSH_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_PATTERN_x1.0: MK_PATTERN_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_MOLEC_x1.0: MK_MOLEC_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_LATSET_x1.0: MK_LATSET_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_G_OF_R_x1.0: MK_G_OF_R_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_XYZ_to_SQGR_x1.0: MK_XYZ_to_SQGR_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_QBE_x1.0: MK_QBE_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 MK_LAYER_OBL_x1.0: MK_LAYER_OBL_x1.0.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 cif2pha_DebUsSy: cif2pha_DebUsSy.o
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 
 clean:

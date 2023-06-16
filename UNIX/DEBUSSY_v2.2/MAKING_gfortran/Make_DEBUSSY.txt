@@ -31,7 +31,7 @@ INCUSE = -I$(INCLDIREXT1)
 #
 #
 IOPT =  -I$(MODDIR) $(INCUSE)
-FCOM = gfortran
+FC = gfortran
 # two optional compilation modes
 FSAF = -fbounds-check -fbacktrace -finit-local-zero -fexternal-blas -lblas $(IOPT)
 FFAS = -O3 -floop-nest-optimize -finit-local-zero -fexternal-blas -lblas $(IOPT)
@@ -42,9 +42,9 @@ LOPT = $(LIBUSE)
 .SUFFIXES: .f90 .mod $(SUFFIXES)
 #
 .f90.o:
-	$(FCOM) $(FOPT) -c $<  2>> err.log
+	$(FC) $(FOPT) -c $<  2>> err.log
 #.f90.mod:
-#	$(FCOM) $(FOPT) -c $<  2>> err.log
+#	$(FC) $(FOPT) -c $<  2>> err.log
 #
 #
 libDebussy.a: REFINEM_Deb.o REFTOOLS_FUN.o FORSAMP.o calcfun_db2.o UTILITY.o $(SRCS)
@@ -53,7 +53,7 @@ libDebussy.a: REFINEM_Deb.o REFTOOLS_FUN.o FORSAMP.o calcfun_db2.o UTILITY.o $(S
 	cp $@ ../lib/
 #
 Debussy: Debussy.o libDebussy.a
-	$(FCOM) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
+	$(FC) $(FOPT) -o $@ $@.o $(LOPT) 2>> err.log
 #
 #
 install: Debussy libDebussy.a

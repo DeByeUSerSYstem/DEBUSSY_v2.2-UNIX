@@ -109,7 +109,7 @@ if [ "$debpath" != "$instpath" ]; then
       fstr=$(fgrep $debpath $HOME/.profile)
       if [ -z "$fstr" ]; then
         echo '  .profile found, updating..'
-        echo 'export PATH='$debpath'bin:$PATH' >> $HOME/.profile
+        echo 'export PATH='$debpath'bin:$PATH ' >> $HOME/.profile
       fi
     fi
      if [ -e $HOME/.bash_profile ]; then

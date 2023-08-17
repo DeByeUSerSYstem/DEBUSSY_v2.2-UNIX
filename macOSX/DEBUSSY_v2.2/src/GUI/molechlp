@@ -1,7 +1,0 @@
-Select one .XYZ files using the browsing button, the selected file will be used as input files for the generation of a database of clusters with sampled distances.
-
-Select the sampling option One/All. If one is found, inter-atomic distances will be sampled by using one sampling step (in the range 0.3÷96.0 A), derived according to the specified wavelength and 2theta maximum values supplied in the next line.
-If all is found, all sampling steps will be used, producing 32 sets of sampled distances.
-
-Enter the wavelength and 2theta maximum values using the corresponding text fields. Units are Angstroem and degrees, respectively.
-

@@ -17,11 +17,3 @@ The source code of the program can be found [here](UNIX).
 
 For instructions to compile the program suite for UNIX systems please check the file [Compiling_UNIX_with_Anaconda.pdf](How2install/Compiling_UNIX_with_Anaconda.pdf).
 
-
-MacOSX
--------
-
-We recommend you to install the binaries found [here](macOSX).
-
-For instructions to install the program suite please check the file [Programs_Installation_MacOSX.pdf](How2install/Programs_Installation_MacOSX.pdf).
-

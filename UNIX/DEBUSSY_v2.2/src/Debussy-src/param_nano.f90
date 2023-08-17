@@ -333,7 +333,11 @@ CONTAINS
         CASE ('STR_W') parameters
           Param_data(i)%NamePar(9) = ident
           read(buffer(:lbuf),*) Param_data(i)%PhasePar(:,9),Param_data(i)%flag_ref(9)
-
+          !micr
+         CASE ('EPS_W') parameters
+          Param_data(i)%NamePar(9) = ident
+          read(buffer(:lbuf),*) Param_data(i)%PhasePar(:,9),Param_data(i)%flag_ref(9)  
+		 !
         CASE ('ATO**') parameters
           Param_data(i)%NameAto(j) = ident
           read(buffer(:lbuf),*) Param_data(i)%law_refOB(j,:)

@@ -1285,13 +1285,16 @@ contains
    REAL(CP),OPTIONAL,INTENT(IN)       :: pin(:)
 
    REAL(DP)               :: alp4(4)
-   REAL(DP)               :: ln_n00,ln_wid, ln_n00_2nd,ln_wid_2nd
+   REAL(DP)               :: ln_n00,ln_wid, ln_n00_2nd,ln_wid_2nd, dA_A,sig,gau_fwhm,nk,dxxx
    LOGICAL                :: refresh_Umat
    LOGICAL                :: refresh_Tmat
    character(132)         :: funga 
    INTEGER(I4B)           :: klin(2)
-   REAL(DP)               :: DWpars(NumPar_DW,100),OKpars(NumPar_Oc,100)
- 
+   REAL(DP)               :: DWpars(NumPar_DW,100),OKpars(NumPar_Oc,100), cal_last, cal_one
+   
+  
+  REAL(DP), allocatable  :: micr_cal(:)
+  logical, allocatable   :: MICR_READY(:)
  integer(I4B),allocatable,save  :: K_DISTRU2D(:,:)
 
    illogik = .false.
@@ -1373,6 +1376,9 @@ contains
   ELSE IF (PARAPHAS(CURR_STR)%str_cod > 3 .and. PARAPHAS(CURR_STR)%str_cod <= 6) THEN
       alpha_str = Omega * Downscale_Par
       beta_str  = PARAPHAS(CURR_STR)%nano_parcurr(7) * Downscale_Par
+      IF (MICRO_FLAG(CURR_STR)==1) then 
+           dA_A=PARAPHAS(CURR_STR)%nano_parcurrE(9)
+      ENDIF
   ENDIF
   
   !______ Penalty ...
@@ -1406,6 +1412,18 @@ contains
     ENDIF
     call CHECKCASE(y1,y2,Omega,Delta,numcase,Etol)
   ELSE IF (PARAPHAS(CURR_STR)%str_cod == 1) THEN
+  !!! microstrain 
+  IF (MICRO_FLAG(CURR_STR)==1) then 
+    dA_A=PARAPHAS(CURR_STR)%nano_parcurrE(9)
+    IF (PRESENT(npin)) THEN
+     PARAPHAS(CURR_STR)%nano_parcurrE(6:9) = (/Omega, Omega, real(Ncutoff+Ncut0,DP)*half,dA_A/)
+     ELSE
+      Xi    = PARAPHAS(CURR_STR)%nano_par0E(6)
+      xn0   = real(Ncutoff+Ncut0,DP)*half
+      xw    = dA_A
+    ENDIF
+    !!
+  ELSE  
     IF (PRESENT(npin)) THEN
       PARAPHAS(CURR_STR)%nano_parcurrE(6:9) = (/Omega, Omega, real(Ncutoff+Ncut0,DP)*half, one/)
     ELSE
@@ -1413,6 +1431,7 @@ contains
       xn0   = real(Ncutoff+Ncut0,DP)*half
       xw    = one
     ENDIF
+  ENDIF
   ELSE IF (PARAPHAS(CURR_STR)%str_cod == 2) THEN
      !______________ INVERSE LINEAR strain
     IF (PRESENT(npin)) THEN
@@ -1570,6 +1589,7 @@ contains
   ENDIF
 
   tolvvv = s4eps_DP*maxval(V_mat(1:nano_iav(CURR_STR)%dimstruk))
+
   IF (ILAMBDA_W(CURR_SET)>1) then
     do i=Ncut0,Ncutoff
       if (V_mat(i) < tolvvv) cycle ! -- control
@@ -1623,9 +1643,42 @@ contains
   endif
 
 
+!! micr ISO 4eps tan(theta)
+!  dA_A=PARAPHAS(CURR_STR)%nano_parcurrE(9) 
+   if (MICRO_FLAG(CURR_STR)==1) then 
+     if (ALLOCATED(micr_cal)) deallocate(micr_cal)
+     allocate(micr_cal(1:NDATA_W(CURR_SET)))
+   micr_cal=zero
+  dxxx= Obs_data_W(CURR_SET)%t2data(2)-Obs_data_W(CURR_SET)%t2data(1)
+  do i =1, NDATA_W(CURR_SET)
+      gau_fwhm = four*dA_A*tan(degrees_to_radians/two*Obs_data_W(CURR_SET)%t2data(i))/degrees_to_radians 
+      sig = gau_fwhm/(two*sqrt(two*log(two))) 
+      nk = 1/sqrt(two*pi)/sig        
+    do j =1, NDATA_W(CURR_SET)
+     if (abs(Obs_data_W(CURR_SET)%t2data(i)-Obs_data_W(CURR_SET)%t2data(j))<=sig*three) then 
+		micr_cal(i) = micr_cal(i) + CALPHA_W(CURR_SET,CURR_STR)%vdata(j)*nk*exp(-((Obs_data_W(CURR_SET)%t2data(i)- &
+       Obs_data_W(CURR_SET)%t2data(j)))**2/(two*sig**2))*dxxx
+          else  
+        cycle
+      endif
+     enddo
+   enddo
+    do i =1, NDATA_W(CURR_SET)	
+      gau_fwhm = four*dA_A*tan(degrees_to_radians/two*Obs_data_W(CURR_SET)%t2data(i))/degrees_to_radians 
+      sig = gau_fwhm/(two*sqrt(two*log(two)))  
+     if ((Obs_data_W(CURR_SET)%t2data(i)-(sig*one))>Obs_data_W(CURR_SET)%t2data(1) .and. &
+       (Obs_data_W(CURR_SET)%t2data(i)+(sig*one))<Obs_data_W(CURR_SET)%t2data(NDATA_W(CURR_SET))) then 
+        CALPHA_W(CURR_SET,CURR_STR)%vdata(i)=micr_cal(i)
+      else
+      cycle
+     endif   
+    enddo
+endif  
+!!
+
     DISTRU(:,CURR_STR,:)=zero
     do n=Ncut0,Ncutoff
-      if (V_mat(n) < s4eps_DP*maxval(V_mat(1:nano_iav(CURR_STR)%dimstruk))) cycle
+     if (V_mat(n) < s4eps_DP*maxval(V_mat(1:nano_iav(CURR_STR)%dimstruk))) cycle
        DISTRU(n,CURR_STR,1)=V_mat(n)
        DISTRU(n,CURR_STR,2)=A_mat(n)
        DISTRU(n,CURR_STR,3)=SUM(nano_iav(CURR_STR)%struk(n)%DebyeWallerB(:))/SIZE(nano_iav(CURR_STR)%struk(n)%DebyeWallerB(:))

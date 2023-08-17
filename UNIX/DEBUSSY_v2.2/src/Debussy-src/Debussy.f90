@@ -43,6 +43,9 @@
  IMPLICIT NONE
  Integer (I4B)   :: iudwa, iodwa,lfndwa  
  character(512)  :: fndwa
+ !! FB cputime
+ real(DP)		:: t0,t1
+
 
  call def_eps
  
@@ -67,7 +70,8 @@
  print*,' '
  print*, ' DebUsSy Program is running on Input File: ',fndwa(1:lfndwa)
  print*,' '
- 
+ !!FB cputime
+ call CPU_TIME(t0)
  main_name = ''
 ! main_name = '.'//separator//trim(fndwa)
  main_name = trim(fndwa)
@@ -101,6 +105,9 @@
      call DO_OUTPUT   !!! OUTPUT_FILE is now used also for SIMUL_FLAG = 1
      !call system('gnuplot < plot1.gnu')
      
+     !!FB test time
+     call CPU_TIME(t1)
+     write(*,*)  '------->   CPU time = ',t1-t0,' s'
      print*, ' '
      print*, ' ******* DebUsSy Refinement DONE!  ******* '
 
@@ -344,6 +351,10 @@
     ALL_PHA_INFO_W => ALL_PHA_INFO
     IF (ASSOCIATED(OBS_DATA_W)) NULLIFY(OBS_DATA_W)
     OBS_DATA_W => Obs_data
+    IF (ASSOCIATED(IRF_CURVES_W)) NULLIFY(IRF_CURVES_W)
+    IRF_CURVES_W => IRF_Curves
+    IF (ASSOCIATED(INST_FLAG_W)) NULLIFY(INST_FLAG_W)
+    INST_FLAG_W => INST_FLAG
     IF (ASSOCIATED(NDATA_W)) NULLIFY(NDATA_W)
     NDATA_W   => NDATA
     IF (ASSOCIATED(N2USE_W)) NULLIFY(N2USE_W)
@@ -425,12 +436,16 @@
 
  subroutine DO_FIRST_ICAL
   implicit none
-
+  real(DP)                  :: v
+  
   call RENORM_CAL
-
+ 
+  call conv_IRF 
+    
   call refy_SCAL
 
   call PUT_TOGETHER
+!  call CHISQ_TOT(v)
 
  end subroutine DO_FIRST_ICAL
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -477,8 +492,8 @@
     call write_varia_fileX(kset=1,iu=iu1)
     close(iu1)
   endif
-!        lf=len_trim(main_name)
-!        call hkl_gen (main_name(1:lf))  
+        !lf=len_trim(main_name)
+        !call hkl_gen (main_name(1:lf))  
      
 
  end subroutine DO_OUTPUT

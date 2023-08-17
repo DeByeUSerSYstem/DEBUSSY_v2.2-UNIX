@@ -31,7 +31,7 @@ module REFINE_TOOLS
 
 
 contains
-
+!!
  SUBROUTINE refy_SCAL
    IMPLICIT NONE
    INTEGER(I4B)              :: P_bound, Iset, NSFirst, NSCurr, NSall, NPall
@@ -289,6 +289,8 @@ module REFINEMENT
  use POLYTOPE
  use STRATEGY
  use CALCFUN_DB2
+ 
+ real(DP),parameter     :: lepsi=log(one/eps_DP)
 
  real(DP),save     :: timepolyt,t0polyt,v_overall_best=1.0e20_DP
  real(CP),allocatable,save  :: zwischen(:,:)
@@ -319,6 +321,192 @@ module REFINEMENT
 CONTAINS
 
 !***********************************************************************************
+ SUBROUTINE conv_IRF 
+   IMPLICIT NONE
+   INTEGER(I4B)  :: iimin(1),nupirf,ipass,iirf1,iirf2,auxn2,i,ii,Iset,j
+   REAL(DP)      :: vimax, area_55, paramw, cottt, dxmax, tt000, t0_IRF,t1_IRF
+   REAL(DP),allocatable :: var_irf(:), conv_ical(:)
+   INTEGER(I4B),allocatable  :: iund(:)
+   real(DP),parameter     :: lepsi=log(one/eps_DP)
+   
+DO Iset = 1, NSET_W
+  
+  do j=1,NSTR_W
+
+  if (INST_FLAG_W(Iset) == 0) cycle 
+  
+     !_________ Start IRF convolution
+     call CPU_TIME(t0_IRF)
+     
+     if (ALLOCATED(iund)) deallocate(iund)
+     allocate(iund(NDATA_W(Iset)))
+     iund=[(i,i=1,NDATA_W(Iset))]
+     if (ALLOCATED(var_irf)) deallocate(var_irf)
+     allocate(var_irf(NDATA_W(Iset)))
+     if (ALLOCATED(conv_ical)) deallocate(conv_ical)
+     allocate(conv_ical(NDATA_W(Iset)))
+     
+!_______________ Voigt Caglioti or variable-width
+     ipass=1
+     if (INST_READY(Iset,ipass)) then
+       do i=1,NDATA_W(Iset)
+         iirf1 = Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1
+         iirf2 = Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2
+         conv_ical(i) = sum( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(iirf1:iirf2) * &
+                             CALPHA_W(Iset,j)%vdata(iirf1:iirf2) )
+       enddo
+     else
+       do i=1,NDATA_W(Iset)
+         var_irf = Voigt_F(x   = abs(OBS_DATA_W(Iset)%t2data - OBS_DATA_W(Iset)%t2data(i)), &
+                           sig = sqrt(IRF_Curves_W(Iset)%G_sigma_sqrd(i)), &
+                           w   = IRF_Curves_W(Iset)%L_w(i), &
+                           epx = sceps_DP )
+         vimax = maxval(var_irf)*s4eps_DP !!! magari anche sceps_DP
+         area_55 = sum(var_irf, mask=(var_irf > vimax) )
+         nupirf = count(var_irf > vimax)
+         if (nupirf==1) then
+           conv_ical(i) = CALPHA_W(Iset,j)%vdata(i)
+    !___ Store local IRF for next cycles
+           Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1=i
+           Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2=i
+           ALLOCATE( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                     Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ))
+           Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(i:i)=one
+         else
+           conv_ical(i) = sum( var_irf * CALPHA_W(Iset,j)%vdata, mask=(var_irf > vimax) )/area_55
+    !___ Store local IRF for next cycles
+           Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 = MINVAL(iund, mask=(var_irf > vimax) )
+           Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 = MAXVAL(iund, mask=(var_irf > vimax) )
+           ALLOCATE( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                     Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ))
+           Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(:) = var_irf( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                        Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ) &
+                                                               / area_55
+         endif
+       enddo
+       INST_READY(Iset,ipass) = .true.
+     endif
+     CALPHA_W(Iset,j)%vdata = conv_ical
+     
+!_______________ Axial asym (by exp fun)
+     ipass=2
+     if (INST_6P_var(Iset,7) >= sceps_DP) then
+       if (INST_READY(Iset,ipass)) then
+         do i=1,NDATA_W(Iset)
+           iirf1 = Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1
+           iirf2 = Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2
+           conv_ical(i) = sum( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(iirf1:iirf2) * &
+                               CALPHA_W(Iset,j)%vdata(iirf1:iirf2) )
+         enddo
+       else
+         do i=1,NDATA_W(Iset)
+           var_irf = zero
+           tt000 = OBS_DATA_W(Iset)%t2data(i)
+           cottt = cos(tt000*degrees_to_radians)/sin(tt000*degrees_to_radians)
+           paramw = INST_6P_var(Iset,7)*abs(cottt)
+           dxmax=paramw*lepsi*half
+           if (cottt < -sceps_DP) then
+             iimin(1)=max(1,i-NINT(dxmax/OBS_DATA_W(Iset)%step_data_t2))
+             !minloc( abs( OBS_DATA_W(Iset)%t2data(1:i)-(tt000-dxmax) ) )
+             var_irf(iimin(1):i) = exp(-abs( OBS_DATA_W(Iset)%t2data(iimin(1):i) - tt000 )/paramw)
+           else if (cottt > sceps_DP) then
+             iimin(1)=min(NDATA_W(Iset),i+NINT(dxmax/OBS_DATA_W(Iset)%step_data_t2))
+             !minloc( abs( OBS_DATA_W(Iset)%t2data(i:)-(tt000+dxmax) ) )
+             var_irf(i:iimin(1)) = exp(-abs( OBS_DATA_W(Iset)%t2data(i:iimin(1)) - tt000)/paramw)
+           else if (abs(cottt)<= sceps_DP) then
+             var_irf(i)=one
+           endif
+           vimax = maxval(var_irf)*s4eps_DP !!! magari anche sceps_DP
+           area_55 = sum(var_irf, mask=(var_irf > vimax) )
+           nupirf = count(var_irf > vimax)
+           if (nupirf==1) then
+             conv_ical(i) = CALPHA_W(Iset,j)%vdata(i)
+      !___ Store local IRF for next cycles
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1=i
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2=i
+             ALLOCATE( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                       Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ))
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(i:i)=one
+           else
+             conv_ical(i) = sum( var_irf * CALPHA_W(Iset,j)%vdata, mask=(var_irf > vimax) )/area_55
+      !___ Store local IRF for next cycles
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 = MINVAL(iund, mask=(var_irf > vimax) )
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 = MAXVAL(iund, mask=(var_irf > vimax) )
+             ALLOCATE( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                       Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ))
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(:) = var_irf( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                          Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ) &
+                                                                 / area_55
+           endif
+         enddo
+         INST_READY(Iset,ipass) = .true.
+       endif
+       CALPHA_W(Iset,j)%vdata = conv_ical
+     endif
+     
+!_______________ Cappy
+     ipass=3
+     if (INST_5P_con(Iset,1) >= sceps_DP) then
+       if (INST_READY(Iset,ipass)) then
+         do i=1,NDATA_W(Iset)
+           iirf1 = Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1
+           iirf2 = Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2
+           conv_ical(i) = sum( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(iirf1:iirf2) * &
+                               CALPHA_W(Iset,j)%vdata(iirf1:iirf2) )
+         enddo
+       else
+         do i=1,NDATA_W(Iset)
+           var_irf = zero
+           tt000 = OBS_DATA_W(Iset)%t2data(i)
+           paramw = INST_5P_con(Iset,1)
+           auxn2 = CEILING( paramw / OBS_DATA_W(Iset)%step_data_t2 ) 
+           
+           do ii=max(1,i-auxn2),min(NDATA_W(Iset),i+auxn2)
+             dxmax=abs(OBS_DATA_W(Iset)%t2data(ii)-OBS_DATA_W(Iset)%t2data(i))
+             if (dxmax > paramw) cycle
+             var_irf(ii) = sqrt(max(zero, (paramw-dxmax)*(paramw+dxmax) ))
+           enddo
+           vimax = maxval(var_irf)*s4eps_DP !!! magari anche sceps_DP
+           area_55 = sum(var_irf, mask=(var_irf > vimax) )
+           nupirf = count(var_irf > vimax)
+           if (nupirf==1) then
+             conv_ical(i) = CALPHA_W(Iset,j)%vdata(i)
+      !___ Store local IRF for next cycles
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1=i
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2=i
+             ALLOCATE( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                       Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ))
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(i:i)=one
+           else
+             conv_ical(i) = sum( var_irf * CALPHA_W(Iset,j)%vdata, mask=(var_irf > vimax) )/area_55
+      !___ Store local IRF for next cycles
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 = MINVAL(iund, mask=(var_irf > vimax) )
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 = MAXVAL(iund, mask=(var_irf > vimax) )
+             ALLOCATE( Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                       Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ))
+             Umma_Gumma(Iset,ipass)%Grantchester(i)%Meadows(:) = var_irf( Umma_Gumma(Iset,ipass)%Grantchester(i)%lark1 : &
+                                                                          Umma_Gumma(Iset,ipass)%Grantchester(i)%lark2 ) &
+                                                                 / area_55
+           endif
+         enddo
+         INST_READY(Iset,ipass) = .true.
+       endif
+       CALPHA_W(Iset,j)%vdata = conv_ical
+     endif
+     
+     call CPU_TIME(t1_IRF)
+     print'("INST_RES_FUN applied, time: ",f14.4)',t1_IRF-t0_IRF
+
+     deallocate(var_irf)
+     deallocate(conv_ical)
+  
+   ENDDO   
+  ENDDO   
+     
+END SUBROUTINE conv_IRF 
+
+
+!*****************************************************************************************
 function Err_FofPars(Funny,nfunny,npin,point_fullpset,fullpset,nfull,Jaco)
 implicit none
 integer(I4B),intent(IN) :: npin,nfull,nfunny
@@ -403,7 +591,7 @@ pps=fullpset(1:nfull)
 do istr=1,NSTR_W
   n00x=ncut_0_off(1,istr)
   n01x=ncut_0_off(2,istr)
-  do ii=1,n01x-n00x+1
+  do ii=1,n01x-n00x+1        
     do kk=1,(nano_iav(istr)%struk(n00x)%numspat+1)*2
       pps = allcolout(istr)%J_mucol(ii,1:nfull,kk) * StDev_Vec(1:nfull)
       xerr=sum(pps*matmul(Correl_Matx,pps))
@@ -1490,7 +1678,9 @@ end function endlength
     return
   endif
   call RENORM_CAL
-
+  
+  call conv_IRF 
+  
   call refy_SCAL
 !_____________________ NEGATIVE BKG or AMO : exit w/hi value
   if (illogik) then
@@ -1535,7 +1725,9 @@ end function endlength
     return
   endif
   call RENORM_CAL
-
+    
+  call conv_IRF 
+    
   call refy_SCAL
 !_____________________ NEGATIVE BKG or AMO : exit w/hi value
   if (illogik) then
@@ -1707,8 +1899,9 @@ end function endlength
    INTEGER(I4B)  :: i,ii,Iset,auxn2,haveam
    REAL(DP)      :: sigma,suscam,newN
 
-   DO Iset = 1, NSET_W
 
+   DO Iset = 1, NSET_W
+   
      CALTOT_W(Iset)%vdata = zero
      BACKGROUND(Iset)%lin_bkgr_tot = zero
      BACKGROUND(Iset)%lin_bkgr_blank = zero
@@ -1813,6 +2006,8 @@ end function endlength
      CALTOT_W(Iset)%vdata = CALTOT_W(Iset)%vdata + BACKGROUND(Iset)%lin_bkgr_tot
      IF (DO_AMORPH_W) CALTOT_W(Iset)%vdata = CALTOT_W(Iset)%vdata + AMORPHOUS(Iset)%amo_scat_tot
 !!!!!!!!!!!!!!!!!! this line is just for beauty
+
+   
    ENDDO
 
 
@@ -1844,7 +2039,7 @@ end function endlength
 !     deallocate(micio)
    ENDDO
    chi2 = chi2/canor
-!!print*,'DEBUG: chi^2 CHISQ_TOT= ',chi2
+  if (verbose) print*,'DEBUG: chi^2 CHISQ_TOT= ',chi2
 
 
  END SUBROUTINE CHISQ_TOT

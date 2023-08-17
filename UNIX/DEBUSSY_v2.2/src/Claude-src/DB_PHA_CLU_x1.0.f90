@@ -41,7 +41,7 @@ real(DP)               :: D_max_SPH, D_max_PAR, L_max_PAR, N_max_SPH, xmass_dens
                           scorrb, cocoxy, sigmaxa,sigmaxb, B000_c, sigma_min_sph, para_coeff, &
                           max_intrinsic_sigma, decorr_len, cellpar(3), N1_PAR, N2_PAR, CELL_XYZ(3)
 real(DP)               :: default_xmass_density_gcm3 = zero, default_redmindis = zero
-integer(I4B)           :: sg_nr, sgr,inds1, ll, ind, no_atosp, iloginp, iloginp1,ilogout, ilogout5, iost,sg_pos, lm, lml,lp, &
+integer(I4B)           :: sg_nr, sgr, ll, ind, no_atosp, iloginp, iloginp1,ilogout, ilogout5, iost,sg_pos, lm, lml,&
                           orig_pos, ind3, inds, llp, lpwd, ilogout3, i,iorspg, sc, ilogout4,ind1,lsg_blank,linp, lo, &
                           ind4, ilogpha, ilogout1, ilogout2, llph, pha_pos,lsg_line,AT_CELL_XYZ, lpha,lpath,lddb,linpath
 logical     :: grp_exist=.false., phase_exist= .false., todo_exist=.false., para_exist=.false., spg_variant=.false., oricel_xyz,&
@@ -76,9 +76,6 @@ print*, ' '
    file_inp=ddb(1:lddb)
    file_inp=trim(adjustl(file_inp))
    linp=len_trim(file_inp)
-   inp_path=pwd(1:lpwd)
-    inp_path=trim(adjustl(inp_path))
-    linpath=len_trim(inp_path)
  else
     read(ddb(ind+1:lddb),'(a)') file_inp
     file_inp=trim(adjustl(file_inp))
@@ -87,7 +84,6 @@ print*, ' '
     inp_path=trim(adjustl(inp_path))
     linpath=len_trim(inp_path)
  endif
- 
 
  
  open(unit = iloginp, status = 'old', file = ddb(1:lddb), form = 'formatted', &
@@ -104,7 +100,6 @@ print*, ' '
  READ_IN: do
     read(unit = iloginp, fmt = '(a)', end = 10) rline
     if (rline(1:1) == '!'.or.rline(1:1) == '#'.or.len_trim(rline) == 0) cycle READ_IN
-    rline=trim(adjustl(rline))
     ll = len_trim(rline)
     if (ll<5) then
       print*, ' INPUT WARNING: Too short line at '//rline(1:ll)//'!  Program stops!'
@@ -119,41 +114,33 @@ print*, ' '
 
  task1_info: select case(kw)
        case ('phas')  task1_info
-           ind = index(rline(1:ll), '.',.true.)
-           ind1= index(rline(1:ll), ':')
-           inds = index(rline(1:ll),separator,.true.)
-           inds1=index(rline(ind1+1:ll),separator,.true.)
-               phase=rline(ind1+1:ll)
+           ind = index(rline(1:ll), ' ',.true.)
+           inds = index(rline(ind:ll),separator)
+           if (inds == 0) then
+               read(rline(ind+1:ll),*) phase
                phase = trim(adjustl(phase))
-               lp=len_trim(phase)
-           if (inds1 == 0) then
-               phase_path = phase(1:lp)
-               llp = len_trim(phase_path)  
-               phase=pwd(1:lpwd)//phase(1:lp)
-               lp=len_trim(phase)
-             else
-               phase_path=rline(inds+1:ll)
+               phase_path = pwd(1:lpwd)//trim(adjustl(phase))
+            else
+               read(rline(ind+1:ll),fmt = '(a)') phase_path
                phase_path = trim(adjustl(phase_path))
-               llp = len_trim(trim(phase_path))
             endif
-            !     print*, 'phase ', phase
-      !        llp = len_trim(trim(phase_path))
-         !      ind3 = SCAN(phase_path(1:llp),separator,.true.) 
-!               Pha_name = phase_path(ind3+1:llp) 
-
-             inquire(file = phase(1:lp), exist = phase_exist)
+              llp = len_trim(trim(phase_path))
+              ind3 = SCAN(phase_path(1:llp),separator,.true.) 
+              Pha_name = phase_path(ind3+1:llp) 
+ 
+             inquire(file = phase_path, exist = phase_exist)
                if (.not.phase_exist) then
-                 print*, ' Error! '//phase(1:lp)//' file not found! Program stops!' 
+                 print*, ' Error! '//trim(adjustl(phase_path))//' file not found! Program stops!' 
                  STOP
                else
-                  print*, 'File '//phase(1:lp)//' found'
+                  if (verbose) print*, 'File '//trim(adjustl(phase_path))//' found'
                endif
-              !  Pha_name = trim(adjustl(Pha_name))
-!                lpha = len_trim(Pha_name)
-               ind4= index(phase(1:lp), '.xyz')
+               Pha_name = trim(adjustl(Pha_name))
+               lpha = len_trim(Pha_name)
+               ind4= index(Pha_name(1:lpha), '.xyz')
                if (ind4/=0) mol_exist = .true.
-              
-     
+                   
+        
                      
            
            
@@ -176,7 +163,6 @@ print*, ' '
                 else
                 if  (orig(1:1) == 's'.OR. orig(1:1) == 'S') then
                call upcase(orig(2:2)) 
-               call lowcase(orig(1:1))
              !  call lowcase(orig(3:lo))
                 endif
                endif
@@ -230,14 +216,13 @@ print*, ' '
            endif       
    
          case ('s') origin
-           grp = 'SG_Nr_'//trim(adjustl(sg_char))//'_'//orig(1:lo)//'.grp'
+           grp = 'SG_Nr_'//trim(adjustl(sg_char))//'_'//orig(2:lo)//'.grp'
            inquire(file = trim(path_SpaceGroups)//'SPG_grp/'//trim(adjustl(grp)), exist = grp_exist)
            if (.not.grp_exist) then
              print*, ' ERROR! Wrong combination SG/setting supplied in input! Program stops!'
              STOP
            else
              if (verbose) print*, 'File '//trim(path_SpaceGroups)//'SPG_grp/'//trim(adjustl(grp))//' found'
-             
            endif
    
            
@@ -505,26 +490,27 @@ iloginp1 = FIND_UNIT()
    STOP
  else
    if (oricel_xyz) then
-     write(unit = ilogout, fmt = '(a/a/i10/3f14.6/a/a)') phase_path(1:llp), 'SPG_grp/'//(trim(adjustl(grp))), &
+     write(unit = ilogout, fmt = '(a/a/i10/3f14.6/a/a)') (trim(adjustl(Pha_name))), 'SPG_grp/'//(trim(adjustl(grp))), &
           no_atosp, CELL_XYZ,'constr  '//cell_constr_method, (trim(adjustl(Pears_symb)))
    else
-     write(unit = ilogout, fmt = '(a/a/i5.1/"Atom0",i4/a/a)') phase_path(1:llp), 'SPG_grp/'//(trim(adjustl(grp))), &
+     write(unit = ilogout, fmt = '(a/a/i5.1/"Atom0",i4/a/a)') (trim(adjustl(Pha_name))), 'SPG_grp/'//(trim(adjustl(grp))), &
           no_atosp, AT_CELL_XYZ,'constr  '//cell_constr_method, (trim(adjustl(Pears_symb)))
    endif
  endif
 endif
- !  llph = len_trim(adjustl(Pha_name))
- !   pha_pos = index(phase_path(1:llp),'.pha',.true.)
-  !  pha = trim(adjustl(Pha_name(1:pha_pos-1)))
-    cel_name = phase_path(1:llp-4)//'.cel'
-   close(ilogout)
-   
+   llph = len_trim(adjustl(Pha_name))
+   pha_pos = index(Pha_name,'.')
+    pha = trim(adjustl(Pha_name(1:pha_pos)))
+   cel_name = (trim(adjustl(pha)))//'cel'
+close(ilogout)
+
  ilogpha = FIND_UNIT()
  if (.not.mol_exist) then
+   phase_path = trim(adjustl(phase_path))
    open(unit = ilogpha, status = 'old', form = 'formatted', &
-     access = 'sequential', action = 'readwrite', file = phase(1:lp), iostat = iost)
+     access = 'sequential', action = 'readwrite', file = phase_path, iostat = iost)
      if (iost /= 0) then
-       print*, 'ERROR in opening '//phase(1:lp)//' Program stops!'
+       print*, 'ERROR in opening '//phase_path//' Program stops!'
        STOP
       endif
      read_pha : do
@@ -556,11 +542,11 @@ endif
           STOP
         else
         if (verbose) print*, 'molmkd.ini file created'
-!         phase_path = trim(adjustl(phase_path))
-!         lpath = len_trim(phase_path)
-         write (unit = ilogout5, fmt ='(a)',iostat = iost) phase_path(1:llp)
+        phase_path = trim(adjustl(phase_path))
+        lpath = len_trim(phase_path)
+         write (unit = ilogout5, fmt ='(a)',iostat = iost) phase_path(1:lpath)
            if (iost /= 0) then
-                 print*, 'ERROR in finding '//phase_path(1:llp)//'.xyz!'
+                 print*, 'ERROR in finding xyz path!'  
               endif
          write (unit = ilogout5, fmt = '(a3, 1x, f10.8, f10.5)', iostat = iost)  sampling_how, wave, th2max
              if (iost /= 0) then
@@ -826,4 +812,5 @@ if (.not.mol_exist) then
    end select cluster
 endif
 
+close(ilogout)
  end program DB_PHA_CLU_info  

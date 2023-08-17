@@ -297,7 +297,7 @@ integer(I4B),parameter :: n_elements_EPDL97=100
     eps_pol=beam_pol_ang_ecc(2)
   else ! default - random or circular polarization
     ang_pol=zero
-    eps_pol=zero
+    eps_pol=one
   endif
   sin_pol2 = max(zero,min(one,(sin(ang_pol*degrees_to_radians))**2))
   cos_pol2 = max(zero,min(one,one-sin_pol2))
@@ -3562,14 +3562,25 @@ end function Z_OF_SYMB
 !_________________________________________________________________________________________________
 module rhapsody_in_blue
 use nano_deftyp
+use linalg_tools
 use atomix
 
 real(DP),allocatable,save :: ff_SquaredAverage(:), ff_AverageSquared(:), fofa2_inc(:)
-real(DP),allocatable,save :: Qvec(:), dQvec(:)
-real(DP),allocatable,save :: SofQ_arr(:), e_SofQ_arr(:) ! put here SofQ
+real(DP),allocatable,save :: Qvec(:), dQvec(:),Bsub_bkg(:)
+real(DP),allocatable,save :: SofQ_arr(:), e_SofQ_arr(:), SofQ_arr1(:), BB(:) ! put here SofQ
 integer(I4B),save  :: np_Qvec
-real(DP),save      :: scale_factor_I, dx_eval, av_xstep, radius_fraction=2.0d0, Bsub_bkg=zero, Slop_Zero
+real(DP),save      :: scale_factor_I, dx_eval, av_xstep, radius_fraction=2.0d0, Slop_Zero
+real(DP),save      :: Soper_QT = 5.d0, Packing_Frac = one, num_at_vol_den = 0.064d0, mass_density_gcm3=1.5d0
 logical, save :: mod_valence=.true.
+
+!!__Soper-like variables  ACRF 19072018
+real(DP),save  :: R_max0=1.d4, dR_ft, Rmin_line=1.d0, rho_n ! below this, G(r) is a line -4*Pi*rho_n*r
+real(DP),save :: QT_Soper
+integer(I4B),save  :: np_ft, npmin_ft
+real(DP),allocatable,save :: r_ft(:),d_ft(:),b_ft(:),aux_ft(:)
+logical, save :: Soper_action=.true.
+!!__
+
 
 contains
 !***************************************************************************************************
@@ -3942,10 +3953,11 @@ END SELECT xvariable
 
 end subroutine setup_QdQ
 !***************************************************************************************************
-subroutine Setup_ScatLen_or_FF(wlen,comp_X,comp_Z,rad_type,use_incoh,use_Z_to_scale_Xray)
+subroutine Setup_ScatLen_or_FF(wlen,comp_X,comp_Z,rad_type,use_incoh,use_Z_to_scale_Xray,beam_pol_ang_ecc)
 implicit none
 real(DP),intent(IN)                  :: wlen
 real(DP),dimension(:),intent(IN)     :: comp_X
+real(DP),optional,intent(IN)         :: beam_pol_ang_ecc(2)
 integer(I4B),dimension(:),intent(IN) :: comp_Z
 character(len=1),intent(IN)          :: rad_type !  'x','n','e'
 logical,intent(IN) :: use_incoh,use_Z_to_scale_Xray
@@ -3998,7 +4010,7 @@ do nn=1,nato
       fofam(:)  =  fofam(:)+real(comp_Z(nn),DP)*yfrac
     endif
     if (use_incoh) then
-      fo_inc = fo_inc + yfrac * COMP_COMPTON_S(q=Qvec, Z_e=comp_Z(nn), wavelength=wlen)
+      fo_inc = fo_inc + yfrac * COMP_COMPTON_S(q=Qvec, Z_e=comp_Z(nn), wavelength=wlen, beam_pol_ang_ecc=beam_pol_ang_ecc)
     endif
   else if (rad_type=='e') then
     fofa(:,nn) = FormFact(q=Qvec,Z_e=comp_Z(nn),Radiation_Type='e')
@@ -4093,7 +4105,7 @@ CASE DEFAULT scalmode
 END SELECT scalmode
 end subroutine eval_scale
 !***************************************************************************************************
-subroutine eval_scale_CON0(yarr,e_yarr,wlen,sc_mode,scale_val, tail_frac,head_frac)
+subroutine eval_scale_CON0(yarr,e_yarr,wlen,sc_mode,scale_val, tail_frac,head_frac, deg_bkg, low_sp_fr)
 implicit none
 real(DP),dimension(:),intent(IN)          :: yarr
 real(DP),dimension(:),optional,intent(IN) :: e_yarr
@@ -4101,12 +4113,18 @@ real(DP),optional,intent(IN)         :: tail_frac,head_frac
 real(DP),intent(IN)                  :: wlen
 character(len=1),intent(IN)          :: sc_mode  !  'm','p','t'
 real(DP),optional,intent(IN)         :: scale_val
+real(DP),optional,intent(IN)         :: low_sp_fr
+integer(I4B),optional,intent(IN)     :: deg_bkg
 
-real(DP) :: scale_val1,sIrawq,sfofa2q,cdq, tail_frac1, head_frac1
-real(DP) :: M11,M12,M13,M22,M23,M33,lsmi(3,3),lstn(3),lssv(3),Dmals
-real(DP),allocatable :: xaux(:),yaux(:),waux(:),zaux(:)
-real(DP),allocatable :: xauxh(:),yauxh(:),wauxh(:),zauxh(:)
-integer(I4B) :: np_tail,np_head,np,n1,n2
+real(DP) :: scale_val1,sIrawq,sfofa2q,cdq, tail_frac1, head_frac1,tail_ave,low_sp_fr1
+real(DP) :: Vche, Uche, sumAR
+real(DP),allocatable :: xaux(:),yaux(:),waux(:),zaux(:),vaux(:),  value_P(:), ZZwarr(:)
+real(DP),allocatable :: xauxh(:),yauxh(:),wauxh(:),zauxh(:),vauxh(:), Asvd(:,:),Bsvd(:),Xsvd(:),xche(:),Tche(:,:)
+integer(I4B) :: np_tail,np_head,np,n1,n2, ncoe_bkg,deg_bkg1,k,j,np_tail0
+real(DP) :: Delta_r_Shannon, value_J, value_gamma, value_G, value_GQM3, value_gJ, value_alpha, value_chi2, value_gof, &
+            value_rho, eee, fac_dQ
+integer(I4B) :: iu_con, ncoe_bkgm1
+integer(I4B) :: Cheby_or_lowfreq=2
 
 scale_val1=one
 if (PRESENT(scale_val)) then
@@ -4123,6 +4141,23 @@ if (PRESENT(head_frac)) then
 endif
 
 np=size(yarr)
+Delta_r_Shannon=pi/Qvec(np)
+ncoe_bkg=3
+deg_bkg1=0
+if (PRESENT(deg_bkg)) then
+  deg_bkg1=max(0,deg_bkg)
+  ncoe_bkg=1+deg_bkg1+2
+  Cheby_or_lowfreq=1
+endif
+if (PRESENT(low_sp_fr)) then
+  low_sp_fr1=low_sp_fr
+  if (low_sp_fr1>0.05d0) then
+    deg_bkg1=max(0,floor(low_sp_fr1/Delta_r_Shannon))
+    ncoe_bkg=1+deg_bkg1+2
+    Cheby_or_lowfreq=2
+  endif
+endif
+ncoe_bkgm1=ncoe_bkg-1
 
 scalmode: SELECT CASE(sc_mode)
 CASE ('n') scalmode
@@ -4141,15 +4176,15 @@ CASE ('t') scalmode
   yaux=dQvec(n1:np)*cdq
   if (.not.PRESENT(e_yarr)) then
     scale_factor_I = sum(yarr(n1:np)) / &
-                     sum(ff_SquaredAverage(n1:np) * yaux)
+                     sum(fofa2_inc(n1:np) * yaux)
   else if (PRESENT(e_yarr)) then
     if (ALL(e_yarr<eps_DP)) then
       scale_factor_I = sum(yarr(n1:np)) / &
-                       sum(ff_SquaredAverage(n1:np) * yaux)
+                       sum(fofa2_inc(n1:np) * yaux)
     else
       waux=one/((max(eps_DP,e_yarr(n1:np)))**2)
-      scale_factor_I = sum(yarr(n1:np) * ff_SquaredAverage(n1:np) * waux * yaux) / &
-                       sum(ff_SquaredAverage(n1:np) * ff_SquaredAverage(n1:np) * waux * yaux)
+      scale_factor_I = sum(yarr(n1:np) * fofa2_inc(n1:np) * waux * yaux) / &
+                       sum(fofa2_inc(n1:np) * fofa2_inc(n1:np) * waux * yaux)
     endif
   endif
   deallocate(xaux,yaux)
@@ -4162,46 +4197,224 @@ CASE ('z') scalmode !!!! Constraining also the origin...
   np_head = max(10,nint(head_frac1*real(np,DP)))
   n1=np-np_tail+1
   n2=np_head
-  allocate(xaux(np_tail),yaux(np_tail),waux(np_tail),zaux(np_tail))
-  allocate(xauxh(np_head),yauxh(np_head),wauxh(np_head),zauxh(np_head))
+  print*, 'np n1 n2 ',np,n1,n2
+  !!__RF 09082017
+  np_tail0 = max(10,nint(0.05d0*real(np,DP)))
+  tail_ave = sum(yarr(np-np_tail0+1:np))/np_tail0
+  !!__end
+  allocate(xaux(np_tail),yaux(np_tail),waux(np_tail),zaux(np_tail),vaux(np_tail))
+  allocate(xauxh(np_head),yauxh(np_head),wauxh(np_head),zauxh(np_head),vauxh(np_head), &
+           Asvd(np_head+np_tail,ncoe_bkg),Bsvd(np_head+np_tail),Xsvd(ncoe_bkg),xche(np),Tche(np,0:deg_bkg1))
+  if (allocated(Bsub_bkg)) deallocate(Bsub_bkg)
+  allocate(Bsub_bkg(np))
+  Bsub_bkg=zero
+  Asvd=zero
   cdq=np_tail/sum(dQvec(n1:np))
-  yaux=dQvec(n1:np)*cdq
-  yauxh=dQvec(1:n2)*cdq
+  yaux=yarr(n1:np)!*dQvec(n1:np)!*cdq
+!   yaux=tail_ave 
+  print*, 'tail_ave ', tail_ave, yaux(1), yaux(np_tail)
+  yauxh=yarr(1:n2)!*dQvec(1:n2)!*cdq
   if (.not.PRESENT(e_yarr)) then
-    stop 'with z option you need the esd !!!'
+    vaux=one
+    waux=one
+    vauxh=one
+    wauxh=one
   else if (PRESENT(e_yarr)) then
-      waux=one/((max(eps_DP,e_yarr(n1:np)))**2)
-      wauxh=one/((max(eps_DP,e_yarr(1:n2)))**2)
-      !!__RF 12.07.2017 replaced ff_SquaredAverage with fofa2_inc !!
-      zaux=fofa2_inc(n1:np)-ff_AverageSquared(n1:np)
-      zauxh=fofa2_inc(1:n2)-ff_AverageSquared(1:n2)
-      M11 = sum( wauxh * (Qvec(1:n2)**2) * (fofa2_inc(1:n2)**2) * yauxh )
-      M12 = sum( wauxh * Qvec(1:n2) * fofa2_inc(1:n2) * yauxh )
-      M13 = sum( wauxh * Qvec(1:n2) * fofa2_inc(1:n2) * zauxh * yauxh )
-      M22 = sum( wauxh * yauxh ) + sum( waux * yaux )
-      M23 = sum( wauxh * zauxh * yauxh ) + sum( waux * ff_AverageSquared(n1:np) * yaux )
-      M33 = sum( wauxh * (zauxh**2) * yauxh ) + sum( waux * (ff_AverageSquared(n1:np)**2) * yaux )
-      lstn(1) = sum( wauxh * yarr(1:n2) * Qvec(1:n2) * fofa2_inc(1:n2) * yauxh )
-      lstn(2) = sum( wauxh * yarr(1:n2) * yauxh ) + sum( waux * yarr(n1:np) * yaux )
-      lstn(3) = sum( wauxh * yarr(1:n2) * zauxh * yauxh ) + sum( waux * yarr(n1:np) * ff_AverageSquared(n1:np) * yaux )
-      
-      Dmals = M22*(M11*M33-M13*M13) + M23*(two*M12*M13-M11*M23) - M33*M12*M12
-      lsmi(1,:) = [ M22*M33-M23*M23, M13*M23-M12*M33, M12*M23-M22*M13 ]
-      lsmi(2:3,1)= lsmi(1,2:3)
-      lsmi(2,2:3) = [ M11*M33-M13*M13, M12*M13-M11*M23 ]
-      lsmi(3,2) = lsmi(2,3)
-      !lsmi(3,3) = [ M11*M22-M12*M12 ]
-      lsmi(3,3) = M11*M22-M12*M12
-      lssv = MATMUL(lsmi,lstn) / max(eps_DP,Dmals)
-!___  The next parameters need to be declared/stored in the same place as scale_factor_I
-      scale_factor_I = one/lssv(3)         !___ scale factor to apply to yaux AFTER subtraction of constant bkg (next)
-      Bsub_bkg = lssv(2) * scale_factor_I  !___ to be subtracted from yaux BEFORE scaling it
-      Slop_Zero = lssv(1)                  !___ initial slope. Utility is below the 1 Fv SI (1 Cz IU, 1 Mnk CGS) threshold for now
-      
+    vaux=one/((max(eps_DP,e_yarr(n1:np))))
+    waux=vaux**2
+    vauxh=one/((max(eps_DP,e_yarr(1:n2))))
+    wauxh=vauxh**2
   endif
-  deallocate(xaux,yaux)
-  print*,'Scale factor used [z] : ',scale_factor_I, Bsub_bkg, Slop_Zero
+  Bsvd(1:np_head) = yauxh*vauxh
+  Bsvd(1+np_head:np_head+np_tail) = yaux*vaux
+  zaux=fofa2_inc(n1:np)-ff_AverageSquared(n1:np)
+  zauxh=fofa2_inc(1:n2)-ff_AverageSquared(1:n2)
   
+  Tche(:,0)=one
+  if (Cheby_or_lowfreq==1) then
+    ! Chebyshev mode
+    Uche = one/(Qvec(np)-Qvec(1))
+    Vche = - (Qvec(np)+Qvec(1)) 
+    xche = (two * Qvec + VChe)*Uche
+    if (deg_bkg1>0) then
+      Tche(:,1)=xche
+      if (deg_bkg1>1) then
+        do k=2,deg_bkg1
+          Tche(:,k)=two*xche*Tche(:,k-1)-Tche(:,k-2)
+        enddo
+      endif
+    endif
+  else if (Cheby_or_lowfreq==2) then
+    do k=1,deg_bkg1
+      Tche(:,k)=sin(k*Qvec*Delta_r_Shannon)/(k*Delta_r_Shannon)
+    enddo
+  endif
+  
+  Asvd(1:np_head,1) = Qvec(1:n2)*ff_AverageSquared(1:n2)*vauxh
+  
+  Asvd(1:np_head,2) = zauxh*vauxh
+  Asvd(1+np_head:np_head+np_tail,2) = fofa2_inc(n1:np)*vaux
+  
+  do k=0,deg_bkg1
+    Asvd(1:np_head,3+k) = Tche(1:np_head,k)*vauxh
+    Asvd(1+np_head:np_head+np_tail,3+k) = Tche(n1:np,k)*vaux
+  enddo
+  
+  call SING_VAL_LSPRE(a=Asvd,b=Bsvd,thresh1=sceps_DP,x=Xsvd)
+
+!___  The next parameters need to be declared/stored in the same place as scale_factor_I
+  Slop_Zero = Xsvd(1)/Xsvd(2)          !___ initial slope. Utility is below the 1 Fv SI (1 Cz IU, 1 Mnk CGS) threshold for now
+  scale_factor_I = one/Xsvd(2)         !___ scale factor to apply to yaux AFTER subtraction of constant bkg (next)
+  Bsub_bkg = Xsvd(3)
+  do k=1,deg_bkg1
+    Bsub_bkg=Bsub_bkg+Xsvd(k+3)*Tche(:,k)
+  enddo
+  Bsub_bkg = Bsub_bkg * scale_factor_I  !___ to be subtracted from scale_factor_I * yaux where yaux=I_obs
+  deallocate(xaux,yaux)
+  print*,'Scale factor used [z] : ',scale_factor_I
+  
+  iu_con=find_unit()
+  open(iu_con,status='replace',file='control_file_optZ.txt')
+  sumAR = zero
+  do j=1,np
+    eee=zero
+    if (PRESENT(e_yarr)) eee=e_yarr(j)
+    write(iu_con,*)Qvec(j),dQvec(j),scale_factor_I*yarr(j),scale_factor_I*eee,Bsub_bkg(j), &
+                           one+(scale_factor_I*yarr(j)-Bsub_bkg(j)-fofa2_inc(j))/ff_AverageSquared(j), &
+                           fofa2_inc(j), ff_AverageSquared(j)
+    sumAR = sumAR + Qvec(j)*dQvec(j)*(scale_factor_I*yarr(j)-Bsub_bkg(j)-ff_AverageSquared(j))/fofa2_inc(j)
+  enddo
+  close(iu_con)
+  print*,'Area Q*[S(Q)-1] = ',sumAR,sumAR/sum(Qvec(1:np)*dQvec(1:np))
+  
+!__________________ Case W  
+  
+CASE ('w') scalmode !!!! Constraining also the origin...
+
+  !  U = fofa2_inc
+  !  R = ff_AverageSquared
+
+  fac_dQ = ( Qvec(np)-Qvec(1)+half*(dQvec(np)+dQvec(1)) )/sum(dQvec(1:np))
+  if (abs(fac_DQ-one) > sceps_DP) print*, 'dQ factor = ',fac_dQ
+
+  np_tail = max(10,nint(tail_frac1*real(np,DP)))
+  np_head = max(10,nint(head_frac1*real(np,DP)))
+  n1=np-np_tail+1
+  n2=np_head
+  print*, 'np n1 n2 ',np,n1,n2
+  !!__RF 09082017
+  np_tail0 = max(10,nint(0.05d0*real(np,DP)))
+  tail_ave = sum(yarr(np-np_tail0+1:np))/np_tail0
+  !!__end
+  allocate(ZZwarr(np))
+  allocate(xaux(np_tail),yaux(np_tail),waux(np_tail),zaux(np_tail),vaux(np_tail))
+  allocate(xauxh(np_head),yauxh(np_head),wauxh(np_head),zauxh(np_head),vauxh(np_head), &
+           Asvd(np_head+np_tail,ncoe_bkgm1),Bsvd(np_head+np_tail),Xsvd(ncoe_bkgm1),xche(np),Tche(np,0:deg_bkg1))
+  allocate(value_P(0:deg_bkg1))
+  
+  if (allocated(Bsub_bkg)) deallocate(Bsub_bkg)
+  allocate(Bsub_bkg(np))
+  Bsub_bkg=zero
+  
+  ZZwarr = Qvec*dQvec/ff_AverageSquared
+
+  cdq=np_tail/sum(dQvec(n1:np))
+  yaux=yarr(n1:np)
+!   yaux=tail_ave 
+  print*, 'tail_ave ', tail_ave, yaux(1), yaux(np_tail)
+  yauxh=yarr(1:n2)
+  if (.not.PRESENT(e_yarr)) then
+    vaux=one
+    waux=one
+    vauxh=one
+    wauxh=one
+  else if (PRESENT(e_yarr)) then
+    vaux=one/((max(eps_DP,e_yarr(n1:np))))
+    waux=vaux**2
+    vauxh=one/((max(eps_DP,e_yarr(1:n2))))
+    wauxh=vauxh**2
+  endif
+  
+  
+  zaux=fofa2_inc(n1:np)-ff_AverageSquared(n1:np)
+  zauxh=fofa2_inc(1:n2)-ff_AverageSquared(1:n2)
+  Tche(:,0)=one
+  if (Cheby_or_lowfreq==1) then
+    ! Chebyshev mode
+    Uche = one/(Qvec(np)-Qvec(1))
+    Vche = - (Qvec(np)+Qvec(1)) 
+    xche = (two * Qvec + VChe)*Uche
+    if (deg_bkg1>0) then
+      Tche(:,1)=xche
+      if (deg_bkg1>1) then
+        do k=2,deg_bkg1
+          Tche(:,k)=two*xche*Tche(:,k-1)-Tche(:,k-2)
+        enddo
+      endif
+    endif
+  else if (Cheby_or_lowfreq==2) then
+    do k=1,deg_bkg1
+      Tche(:,k)=sin(k*Qvec*Delta_r_Shannon)/(k*Delta_r_Shannon)
+    enddo
+  endif
+!__ eval. integrals
+  value_J = sum(yarr*ZZwarr)
+  do k=0,deg_bkg1
+    value_P(k) = sum(Tche(:,k)*ZZwarr)
+  enddo
+  value_G = sum(fofa2_inc*ZZwarr)
+  deallocate(ZZwarr)
+  
+  value_gamma = one/(value_G+half*Qvec(1)*Qvec(1))
+  value_GQM3 = value_gamma*unter*Qvec(1)*Qvec(1)*Qvec(1)
+  value_gJ = value_gamma * value_J
+
+  !  U = fofa2_inc
+  !  R = ff_AverageSquared
+  
+  Bsvd(1:np_head) = (yauxh - value_gJ * zauxh ) * vauxh
+  Bsvd(1+np_head:np_head+np_tail) = (yaux - value_gJ * ff_AverageSquared(n1:np) ) * vaux
+  
+  Asvd=zero
+  Asvd(1:np_head,1) = (Qvec(1:n2) * fofa2_inc(1:n2) + zaux(1:n2)*value_GQM3 ) * vauxh
+  Asvd(1+np_head:np_head+np_tail,1) = value_GQM3*ff_AverageSquared(n1:np)*vaux
+  
+  do k=0,deg_bkg1
+    Asvd(1:np_head,2+k) = ( Tche(1:np_head,k)-value_gamma*value_P(k)*zauxh )*vauxh
+    Asvd(1+np_head:np_head+np_tail,2+k) = ( Tche(n1:np,k)-value_gamma*value_P(k)*ff_AverageSquared(n1:np) )*vaux
+  enddo
+  
+  call SING_VAL_LSPRE(a=Asvd,b=Bsvd,thresh1=sceps_DP,x=Xsvd)
+  value_chi2 = sum(Xsvd*matmul(transpose(Asvd),matmul(Asvd,Xsvd)))+sum(Bsvd**2)-two*sum(Bsvd*matmul(Asvd,Xsvd))
+  value_gof=sqrt(max(zero,value_chi2/max(1,np_head+np_tail-ncoe_bkg+1)))
+  
+  value_alpha = Xsvd(1)
+  
+  value_rho = value_gJ + value_alpha * value_GQM3 - sum(value_P*Xsvd(2:ncoe_bkgm1))*value_gamma
+  
+
+!___  The next parameters need to be declared/stored in the same place as scale_factor_I
+  Slop_Zero = value_alpha/value_rho      !___ initial slope. Utility is below the 1 Fv SI (1 Cz IU, 1 Mnk CGS) threshold for now
+  scale_factor_I = one/value_rho         !___ scale factor to apply to yaux AFTER subtraction of constant bkg (next)
+  Bsub_bkg = Xsvd(2)
+  do k=1,deg_bkg1
+    Bsub_bkg=Bsub_bkg+Xsvd(k+2)*Tche(:,k)
+  enddo
+  Bsub_bkg = Bsub_bkg * scale_factor_I  !___ to be subtracted from scale_factor_I * yaux where yaux=I_obs
+  
+  deallocate(xaux,yaux,Asvd,Bsvd)
+  print*,'Scale factor used [w] : ',scale_factor_I,value_gof
+  
+  iu_con=find_unit()
+  open(iu_con,status='replace',file='control_file_optW.txt')
+  do j=1,np
+    eee=zero
+    if (PRESENT(e_yarr)) eee=e_yarr(j)
+    write(iu_con,*)Qvec(j),dQvec(j),scale_factor_I*yarr(j),scale_factor_I*eee,Bsub_bkg(j), &
+                           one+(scale_factor_I*yarr(j)-Bsub_bkg(j)-ff_AverageSquared(j))/fofa2_inc(j), &
+                           fofa2_inc(j), ff_AverageSquared(j)
+  enddo
+  close(iu_con)
   
   
 CASE ('p') scalmode
@@ -4215,15 +4428,121 @@ CASE DEFAULT scalmode
   print'(a)','Unclear what to do, set scale_factor_I = 1.000000 and RETURN...'
   return
 END SELECT scalmode
+print*,'Tail fraction, np_tail, np: ', tail_frac1,np_tail,np,np_tail*1.d0/np
 end subroutine eval_scale_CON0
 !***************************************************************************************************
+subroutine ConvoSQ(Q_v,dQ_v,IQ_in,IQ_out)
+implicit none
+real(DP),dimension(:),intent(IN) :: Q_v,dQ_v,IQ_in
+real(DP),dimension(size(Q_v)),intent(OUT) :: IQ_out
+integer(I4B) :: j,m,np
+real(DP) :: Con,Qm,Qj,ratQ,qDif,qSum,QTS3,QTS2,qProd2,ydq, Qtop,dtop,ttop,dtop1,Z2x,xfrx,Qtop2,ttop2,dtop2
+
+np=size(Q_v)
+QTS2=QT_Soper**2
+QTS3=QT_Soper**3
+Con=(six*pi*pi)/QTS3
+Con=Con/(pi2*pi2)
+
+Qtop=Q_V(np)+half*dQ_v(np)
+Qtop2=Qtop**2
+Z2x=four*( (Qtop-QT_Soper)**2+Qtop*QT_Soper )
+print*,'ConvoSQ: ',np,QT_Soper,Qtop,Q_V(np),Q_V(1)
+IQ_out=zero
+do m=1,np
+  Qm=Q_v(m)
+  dtop=Qtop-Qm
+  ttop=Qtop+Qm
+  ttop2=(ttop+QT_Soper)**2
+  dtop1=dtop + QT_Soper
+  dtop2=dtop1*dtop1
+  xfrx=one
+  if (dtop<QT_Soper) then
+    xfrx= (16.d0*Qm*QTS3) / ( dtop2 * ( ttop2 - Z2x) )
+  endif
+  do j=1,np
+    Qj=Q_v(j)
+    ratQ=Con * Qj/Qm
+    qDif=abs(Qj-Qm)
+    qSum=Qj+Qm
+    qProd2=two*Qj*Qm
+    ydq=dQ_v(j)*IQ_in(j)*xfrx
+    if (QT_Soper>qDif .and. QT_Soper<qSum) then
+      IQ_out(m)=IQ_out(m) + ydq * ratQ * half*(QT_Soper-qDif)*(QT_Soper+qDif)
+    else if (QT_Soper >= qSum) then
+      IQ_out(m)=IQ_out(m) + ydq * ratQ * qProd2
+    endif
+  enddo
+enddo
+
+end subroutine ConvoSQ
+!*******************************************************************************
+subroutine setup_Rspace(Qmax,dQmin)
+!____ Qmax=4*pi*sin(theta)/lambda (max)
+implicit none
+real(DP),intent(In)  :: Qmax,dQmin
+integer(I4B) :: j
+
+dR_ft = Pi/Qmax
+R_max0=Pi/dQmin
+np_ft = nint(R_max0/dR_ft)
+if (allocated(r_ft)) deallocate(r_ft)
+if (allocated(b_ft)) deallocate(b_ft)
+if (allocated(d_ft)) deallocate(d_ft)
+if (allocated(aux_ft)) deallocate(aux_ft)
+allocate(r_ft(np_ft),d_ft(np_ft),b_ft(np_ft),aux_ft(np_ft))
+r_ft=[(dR_ft*j,j=1,np_ft)]
+npmin_ft = nint(Rmin_line/dR_ft)
+aux_ft = r_ft*QT_Soper
+aux_ft=three*(sin(aux_ft)-aux_ft*cos(aux_ft))/(aux_ft**3)
+
+end subroutine setup_Rspace
+!*******************************************************************************
+subroutine FT_toR_Soper()
+implicit none
+integer(I4B) :: j,iu_sop
+real(DP)  :: tpsur
+
+do j=1,np_ft
+  tpsur=two/(Pi*r_ft(j))
+  d_ft(j)=tpsur*sum( (SofQ_arr-SofQ_arr1) * Qvec * dQvec * sin(r_ft(j)*Qvec) )
+enddo
+!b_ft(1:npmin_ft) = d_ft(1:npmin_ft) + one + four*pi*rho_n*r_ft(1:npmin_ft) -one
+b_ft(1:npmin_ft) = (d_ft(1:npmin_ft) + one)
+b_ft(npmin_ft+1:np_ft) = -d_ft(npmin_ft+1:np_ft)*aux_ft(npmin_ft+1:np_ft)/(one-aux_ft(npmin_ft+1:np_ft))
+
+iu_sop=find_unit()
+open(iu_sop,status='replace',file='control_file_Soper_R1.txt')
+write(iu_sop,*)'#',npmin_ft
+do j=1,np_ft
+  write(iu_sop,*)r_ft(j),d_ft(j),b_ft(j),aux_ft(j)
+enddo
+close(iu_sop)
+
+end subroutine FT_toR_Soper
+!*******************************************************************************
+subroutine FT_toQ_Soper()
+implicit none
+integer(I4B) :: j,m
+real(DP)  :: qpsur,fprx
+
+integer(I4B) :: npq
+npq=size(SofQ_arr)
+fprx=four*Pi *rho_n
+do j=1,npq
+  qpsur=fprx/Qvec(j)
+  BB(j)=qpsur*sum( dR_ft*r_ft * b_ft * sin(Qvec(j)*r_ft) )!-one
+enddo
+
+end subroutine FT_toQ_Soper
+!*******************************************************************************
 subroutine eval_SofQ(yarr,e_yarr, force_f2a,dont_subtract,brobb)
 implicit none
 real(DP),dimension(:),intent(IN)          :: yarr
 real(DP),dimension(:),optional,intent(IN) :: e_yarr,brobb
 logical,intent(IN) :: force_f2a,dont_subtract
 
-integer(I4B) :: npq
+integer(I4B) :: npq,iu_sop,iq
 real(DP)     :: svi,ostep
 
 npq=size(yarr)
@@ -4234,10 +4553,17 @@ if (PRESENT(e_yarr)) then
   endif
 endif
 if (ALLOCATED(SofQ_arr)) deallocate(SofQ_arr)
+if (ALLOCATED(BB)) deallocate(BB)
 if (ALLOCATED(e_SofQ_arr)) deallocate(e_SofQ_arr)
 allocate(SofQ_arr(npq),e_SofQ_arr(npq))
 
-print*, 'eval_SofQ:  scale_factor_I', scale_factor_I,'  Bsub_bkg', Bsub_bkg,'  Slop_Zero', Slop_Zero
+if (.not.allocated(Bsub_bkg)) then
+  allocate(Bsub_bkg(npq))
+  Bsub_bkg=zero
+endif
+
+print*, 'eval_SofQ:  scale_factor_I', scale_factor_I,'  Slop_Zero', Slop_Zero
+print*,'Background residual Bsub_bkg : ',Bsub_bkg(1),maxval(Bsub_bkg),sum(Bsub_bkg)/size(Bsub_bkg),minval(Bsub_bkg),Bsub_bkg(npq)
 svi=one
 if (abs(scale_factor_I)>eps_DP) svi=one/scale_factor_I
 
@@ -4254,11 +4580,10 @@ if (abs(scale_factor_I)>eps_DP) svi=one/scale_factor_I
 !   SofQ_arr = (svi * yarr) / ff_SquaredAverage
 ! endif
 
-
 if ((.not.force_f2a).and.(.not.dont_subtract)) then
   print*, ' A'
 !  SofQ_arr = (svi * (yarr-Bsub_bkg) - fofa2_inc) / ff_AverageSquared
-  SofQ_arr = abs(one + (scale_factor_I * yarr - Bsub_bkg - fofa2_inc) / ff_AverageSquared)
+  SofQ_arr = one + (scale_factor_I * yarr - Bsub_bkg - fofa2_inc) / ff_AverageSquared
 else if ((force_f2a).and.(.not.dont_subtract)) then
   print*, ' B'
   !SofQ_arr = (svi * (yarr-Bsub_bkg) - fofa2_inc) / ff_SquaredAverage
@@ -4272,19 +4597,44 @@ else if ((force_f2a).and.(dont_subtract)) then
 endif
 !!___end
 
+if (Soper_action) then
+  QT_Soper = Soper_QT !!__to be given in input
+  rho_n = num_at_vol_den !!__to be given in input calculated from input density
+  call setup_Rspace(maxval(Qvec),minval(dQvec))
+  
+  if (ALLOCATED(SofQ_arr1)) deallocate(SofQ_arr1)
+  allocate(SofQ_arr1(npq),BB(npq))
+  call ConvoSQ(Qvec,dQvec,SofQ_arr,SofQ_arr1)
+  iu_sop=find_unit()
+  open(iu_sop,status='replace',file='control_file_Soper1.txt')
+  do iq=1,npq
+    write(iu_sop,*)Qvec(iq),dQvec(iq),SofQ_arr(iq),SofQ_arr1(iq)
+  enddo
+  close(iu_sop)
+  call FT_toR_Soper()
+  call FT_toQ_Soper()
+  SofQ_arr = SofQ_arr - SofQ_arr1 - BB + one ! successful addition of 1 - AC 26.7.18
+  iu_sop=find_unit()
+  open(iu_sop,status='replace',file='control_file_Soper2.txt')
+  do iq=1,npq
+    write(iu_sop,*)Qvec(iq),dQvec(iq),SofQ_arr(iq),SofQ_arr1(iq),BB(iq)
+  enddo
+  close(iu_sop)
+endif
 
 if (PRESENT(e_yarr)) then
-  e_SofQ_arr = (svi * e_yarr) / ff_AverageSquared
+  e_SofQ_arr = (scale_factor_I * e_yarr) / ff_AverageSquared
 else
   e_SofQ_arr = zero
 endif
 if (PRESENT(brobb)) then
-  SofQ_arr=SofQ_arr*brobb
+  SofQ_arr=(SofQ_arr-one)*brobb+one !!!! GUARDARE - probabilmente la Brobb va moltiplicata su S(Q)-1 non su S(Q)
+  ! Agree, AC16.08.2018
 endif
 !_________ rescale to average x-step
-ostep=one/av_xstep
-SofQ_arr=SofQ_arr*ostep
-e_SofQ_arr=e_SofQ_arr*ostep
+!ostep=one/av_xstep
+!SofQ_arr=SofQ_arr*ostep
+!e_SofQ_arr=e_SofQ_arr*ostep
 
 end subroutine eval_SofQ
 !***************************************************************************************************
@@ -4330,6 +4680,8 @@ logical,intent(IN) :: is_Qmax_rel
 real(DP),dimension(size(rvals)) :: sinqr
 integer(I4B) :: npq,npr,iq,nqcut,iqcut
 real(DP) :: ddd,qq,dqq,v1,v2
+! real(DP),dimension(size(SofQ_arr),3) :: Sarr
+! real(DP),dimension(size(SofQ_arr)) :: SQ, eSQ
 
 ! subtr ???
 
@@ -4343,20 +4695,24 @@ endif
 !print*,'SQ:',sum(SofQ_arr),maxval(SofQ_arr),minval(SofQ_arr)
 !print*,' Q:',sum(Qvec),maxval(Qvec),minval(Qvec)
 !print*,'dQ:',sum(dQvec),maxval(dQvec),minval(dQvec)
+!!__add smoothing here / noise damping
+
+! just a test with smoothing: e.g. call PolySmooth(xin=Qvec,yin=SofQ_arr,zin=e_SofQ_arr,VX=Sarr)
+
 do iq=1,npq
   qq=Qvec(iq)
   dqq=dQvec(iq)
   sinqr  = sin(qq*rvals)
   !v1=qq*dqq*SofQ_arr(iq)
-  v1=qq*dqq*(SofQ_arr(iq)-1) !!_RF 17.07.2017
-  v2=(qq*dqq*e_SofQ_arr(iq))**2
+  v1=qq*(SofQ_arr(iq)-one)*dqq !!_RF 17.07.2017
+  v2=dqq*(qq*e_SofQ_arr(iq))**2
   do iqcut=1,nqcut
     if (qq>Qmax_cut(iqcut)) cycle
     Grvals(:,iqcut) = Grvals(:,iqcut) + v1 * sinqr
     EGrvals(:,iqcut) = EGrvals(:,iqcut) + v2 * (sinqr**2)
   enddo
 enddo
-v1=two/Pi
+v1=two/(Pi*num_at_vol_den)
 Grvals  = Grvals*v1
 EGrvals = sqrt(max(zero,EGrvals))*v1
 if (is_Qmax_rel) then
@@ -4369,7 +4725,7 @@ end subroutine GofR_fm_SofQ
 subroutine GofR_from_start(wlen, rvals,Qmax_cut, is_Qmax_rel,Grvals,EGrvals, yarr,e_yarr,sc_mode, &
                            comp_X,comp_Z,rad_type,use_incoh,use_Z_to_scale_Xray, &
                            xarr,dx_scal,dx_vec,twotheta1_q2_bigq3,scale_val, &
-                           force_f2a,dont_subtract,brobb,tail_fr)
+                           force_f2a,dont_subtract,brobb,tail_fr,bkg_deg,bkg_lowr,beam_pol)
 implicit none
 real(DP),intent(IN) :: wlen
 real(DP),dimension(:),intent(IN) :: rvals
@@ -4384,17 +4740,34 @@ integer(I4B),dimension(:),intent(IN) :: comp_Z
 character(len=1),intent(IN)          :: rad_type !  'x','n','e'
 logical,intent(IN) :: use_incoh,use_Z_to_scale_Xray
 real(DP),dimension(:),intent(IN) :: xarr
-real(DP),intent(IN),optional :: dx_scal
+real(DP),intent(IN),optional :: dx_scal,beam_pol(2)
 real(DP),dimension(:),intent(IN),optional :: dx_vec
 integer(I4B),intent(IN) :: twotheta1_q2_bigq3
+integer(I4B),intent(IN),optional :: bkg_deg
+real(DP),intent(IN),optional :: bkg_lowr
 real(DP),intent(IN),optional :: scale_val,tail_fr
 logical,intent(IN) :: force_f2a,dont_subtract
-real(DP) :: tail_frx=0.05d0
+real(DP) :: tail_frx=0.05d0,beam_pol1(2),bkg_lowr1
+integer(I4B) :: bkg_deg1
 
 logical :: optinp(4)
 
 if (PRESENT(tail_fr)) then
   tail_frx = max(0.001d0,tail_fr)
+endif
+
+bkg_deg1 = 0
+if (PRESENT(bkg_deg)) then
+  bkg_deg1 = bkg_deg
+endif
+bkg_lowr1 = 0.d0
+if (PRESENT(bkg_lowr)) then
+  bkg_lowr1 = bkg_lowr
+endif
+
+beam_pol1 = 0
+if (PRESENT(beam_pol)) then
+  beam_pol1 = beam_pol
 endif
 
 optinp = [PRESENT(e_yarr), PRESENT(dx_scal), PRESENT(dx_vec), PRESENT(scale_val)]
@@ -4410,24 +4783,17 @@ endif
 
 print*,'bef.',comp_Z,size(comp_Z)
 call Setup_ScatLen_or_FF(wlen=wlen,comp_X=comp_X,comp_Z=comp_Z,rad_type=rad_type,use_incoh=use_incoh,&
-                         use_Z_to_scale_Xray=use_Z_to_scale_Xray)
-!!__RF 12.07.2017
-! if ((optinp(1)).and.(optinp(4))) then
-!   call eval_scale(yarr=yarr,e_yarr=e_yarr,wlen=wlen,sc_mode=sc_mode,scale_val=scale_val, tail_frac=tail_frx)
-! else if ((.not.optinp(1)).and.(optinp(4))) then
-!   call eval_scale(yarr=yarr,wlen=wlen,sc_mode=sc_mode,scale_val=scale_val, tail_frac=tail_frx)
-! else if ((optinp(1)).and.(.not.optinp(4))) then
-!   call eval_scale(yarr=yarr,e_yarr=e_yarr,wlen=wlen,sc_mode=sc_mode, tail_frac=tail_frx)
-! else if ((.not.optinp(1)).and.(.not.optinp(4))) then
-!   call eval_scale(yarr=yarr,wlen=wlen,sc_mode=sc_mode, tail_frac=tail_frx)
-! endif
+                         use_Z_to_scale_Xray=use_Z_to_scale_Xray,beam_pol_ang_ecc=beam_pol1)
+
 
 if ((optinp(1)).and.(optinp(4))) then
-  call eval_scale_CON0(yarr=yarr,e_yarr=e_yarr,wlen=wlen,sc_mode=sc_mode,scale_val=scale_val, tail_frac=tail_frx)
+  call eval_scale_CON0(yarr=yarr,e_yarr=e_yarr,wlen=wlen,sc_mode=sc_mode,scale_val=scale_val, tail_frac=tail_frx, &
+                       deg_bkg=bkg_deg1,low_sp_fr=bkg_lowr1)
 else if ((.not.optinp(1)).and.(optinp(4))) then
   call eval_scale_CON0(yarr=yarr,wlen=wlen,sc_mode=sc_mode,scale_val=scale_val, tail_frac=tail_frx)
 else if ((optinp(1)).and.(.not.optinp(4))) then
-  call eval_scale_CON0(yarr=yarr,e_yarr=e_yarr,wlen=wlen,sc_mode=sc_mode, tail_frac=tail_frx)
+  call eval_scale_CON0(yarr=yarr,e_yarr=e_yarr,wlen=wlen,sc_mode=sc_mode, tail_frac=tail_frx, &
+                       deg_bkg=bkg_deg1,low_sp_fr=bkg_lowr1)
 else if ((.not.optinp(1)).and.(.not.optinp(4))) then
   call eval_scale_CON0(yarr=yarr,wlen=wlen,sc_mode=sc_mode, tail_frac=tail_frx)
 endif
@@ -4523,7 +4889,8 @@ do ikk=1,n2r
 enddo
 
 deallocate(xexe,choox)
-
+!! close xye
+close(iuf)
 end subroutine read_xye
 !***************************************************************************************************
 subroutine SINCFT_TT(ttye,dtt,wl,rgr,dr)

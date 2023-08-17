@@ -494,10 +494,21 @@ endif
   
 case ('HEX')
 
+!! 26.12.2016 largest_only
+if (do_allsizes) then 
+     jlower_ab=0
+     jupper_ab=NCL2MK(1)-1
+  else
+    jlower_ab=NCL2MK(1)-1
+    jupper_ab=NCL2MK(1)-1
+endif   
+
   ! hexagonal, n*a,n*b,m*c
   napcel=sum(nabys(1:Nspa))
    
-  DO NL_ab=0,NCL2MK(1)-1
+!  DO NL_ab=0,NCL2MK(1)-1
+
+   DO NL_ab=jlower_ab,jupper_ab
   call CPU_TIME(t1)
    write(ff1, '(i3.3)') NL_ab
   write(*,*) 'Building '//clushape(1:3)//' Clusters with Nab '//ff1(1:3)//' --> CPU time = ',t1-t0,' s'

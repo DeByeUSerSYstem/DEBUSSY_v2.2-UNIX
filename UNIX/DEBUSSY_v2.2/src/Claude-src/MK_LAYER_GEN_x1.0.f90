@@ -145,7 +145,6 @@ IF (para_model == 'WelbAnys') then
 else IF (para_model == 'WelbIsot') then
   max_intrinsic_sigma=parapar(1) ! limit variance is  2 * max_intrinsic_sigma**2
   decorr_len = parapar(2)
-
 !!!!!!!!!!!
   var_targ = two*(max_intrinsic_sigma**2)
   r_targ=decorr_len

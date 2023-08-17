@@ -351,6 +351,15 @@ integer(I4B)  :: j
   IF (ALLOCATED(POROD_BKG)) DEALLOCATE(POROD_BKG)
   IF (ALLOCATED(GEOM)) DEALLOCATE(GEOM)
   IF (ALLOCATED(XDATA_TYPE)) DEALLOCATE(XDATA_TYPE)
+  IF (ALLOCATED(INST_FLAG)) DEALLOCATE(INST_FLAG)
+  IF (ALLOCATED(INST_6P_var)) DEALLOCATE(INST_6P_var)
+  IF (ALLOCATED(INST_5P_con)) DEALLOCATE(INST_5P_con)
+  
+  ALLOCATE(INST_FLAG(nset),INST_6P_var(nset,7),INST_5P_con(nset,5))
+  INST_FLAG=0
+  INST_6P_var=0.d0
+  INST_5P_con=0.d0
+  
 
   ALLOCATE(TECHNIQUE(nset), RADIATION(nset), DATA_FILENAME(nset), BLANK_FILENAME(nset), &
            BLANK_NCOMPS(nset), POROD_BKG(nset), GEOM(nset), XDATA_TYPE(nset))
@@ -361,7 +370,11 @@ integer(I4B)  :: j
 
   ALLOCATE(NDATA(nset), ANGRANGE(3,nset), N_EVERY(nset))
   N_EVERY=1
-
+  
+!! microstrain
+  IF (ALLOCATED(MICRO_FLAG)) deallocate(MICRO_FLAG)
+  ALLOCATE(MICRO_FLAG(nstr)) 
+  MICRO_FLAG = 0
 
   IF (ALLOCATED(STRUCTURE_NAME)) DEALLOCATE(STRUCTURE_NAME)
   IF (ALLOCATED(PATH_NAME))      DEALLOCATE(PATH_NAME)
@@ -652,6 +665,12 @@ subroutine ULOOP(rline,ident,buffer,lbuf,kset,i)
            STOP
         ENDIF
 
+      CASE ('inst') dataset
+        READ(buffer(:lbuf),*,IOSTAT=astat) INST_FLAG(kset), INST_6P_var(kset,:),INST_5P_con(kset,:)
+        IF (astat /= 0) THEN
+          INST_FLAG(kset) = 0
+        ENDIF
+
       CASE DEFAULT dataset
 
         print*,'Something may be wrong at line ',i
@@ -847,6 +866,14 @@ subroutine VLOOP(rline,ident,buffer,lbuf,kstr,i)
 
         PARAMETER_FILE(kstr) = buffer(:lbuf)
 !        print*,'Accepting ',TRIM(PARAMETER_FILE(kstr))
+
+     !! micr
+          CASE ('micr') structure ! FB microstrain calc
+                            ! reading : FLAG, epsilon 
+
+        READ(buffer(:lbuf),*) MICRO_FLAG(kstr)
+
+
 
       CASE ('limi') structure
 

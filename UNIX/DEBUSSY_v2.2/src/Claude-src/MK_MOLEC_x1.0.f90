@@ -41,6 +41,8 @@ print*, ' '
 print*,'     Running MK_MOLEC Program    '
 print*, ' '
 
+!!FB cputime
+ call CPU_TIME(t0)
 
 call def_eps
 
@@ -293,6 +295,10 @@ print'(a,1x,f17.8)',' Estimated cluster diameter (nm) = ',xxx
 Actual_Diam(:) = xxx
 
 call OUTSAMP(finumb=namestr(1:lnamestr)//'.smp',Bpre=zero)
+
+!! FB cputime
+ call CPU_TIME(t1)
+  write(*,*)  '------->   CPU time = ',t1-t0,' s'
 
 print*, ' '
 print*, '******* JOB SMP SINGLE CLUSTER DONE! *******'

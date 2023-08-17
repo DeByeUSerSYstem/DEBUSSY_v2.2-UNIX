@@ -28,6 +28,11 @@ private
 public :: Voigt_F, w_of_z_F, cdawson_F, Erfcx_F, Erfi_F, Im_w_of_x_F, &
           Dawson_F, cerf_F, cerfc_F, cerfcx_F, cerfi_F
 ! - - - - - - - - - - - - 
+
+INTERFACE Voigt_F
+   MODULE PROCEDURE Voigt_F1, Voigt_Fn
+END INTERFACE Voigt_F
+
 INTERFACE
 FUNCTION voigt ( x, sigma, gamma ) bind(c)
 USE ISO_C_BINDING
@@ -147,17 +152,42 @@ END INTERFACE
 
 contains
 !********************************************************
-function Voigt_F(x,sig,w)
+function Voigt_F1(x,sig,w)
 ! voigt(x,sigma,gamma) = \int_|R G(t,sigma) L(x-t,gamma) dt
 ! WITH: G(x,sigma) = (1/(sqrt(2*pi)*|sigma|)) * exp(-x**2/(2*sigma**2)) ;
 !       L(x,gamma) = |gamma| / (pi * ( x**2 + gamma**2 )) .
 implicit none
 real(DP),intent(IN) :: x,sig,w
-real(DP) :: Voigt_F
+real(DP) :: Voigt_F1
 
-Voigt_F = real(voigt( x=real(x,C_DOUBLE), sigma=real(sig,C_DOUBLE), gamma=real(w,C_DOUBLE) ), DP)
+Voigt_F1 = real(voigt( x=real(x,C_DOUBLE), sigma=real(sig,C_DOUBLE), gamma=real(w,C_DOUBLE) ), DP)
 
-end function Voigt_F
+end function Voigt_F1
+!********************************************************
+function Voigt_Fn(x,sig,w,epx)
+! voigt(x,sigma,gamma) = \int_|R G(t,sigma) L(x-t,gamma) dt
+! WITH: G(x,sigma) = (1/(sqrt(2*pi)*|sigma|)) * exp(-x**2/(2*sigma**2)) ;
+!       L(x,gamma) = |gamma| / (pi * ( x**2 + gamma**2 )) .
+implicit none
+real(DP),intent(IN) :: sig,w
+real(DP),dimension(:),intent(IN) :: x
+real(DP),optional,intent(IN) :: epx
+real(DP),dimension(size(x)) :: Voigt_Fn
+integer(I4B) :: np,i
+real(DP)     :: xmax,axa
+
+Voigt_Fn=zero
+xmax = biggest_DP
+if (PRESENT(epx)) then
+  xmax = max( sig*Sqrt(abs(two*log(epx))), w*sqrt(abs((one-epx)/epx)) )
+endif
+np=size(x)
+do i=1,np
+  if (abs(x(i))>xmax) cycle
+  Voigt_Fn(i) = real(voigt( x=real(x(i),C_DOUBLE), sigma=real(sig,C_DOUBLE), gamma=real(w,C_DOUBLE) ), DP)
+enddo
+
+end function Voigt_Fn
 !********************************************************
 function Erfcx_F(x)
 !  erfcx(x) = exp(x**2) * erfc(x)
@@ -10996,7 +11026,8 @@ struve_h1_values, clausen_values, struve_l0_values
            Airy_Ai_Integral, Airy_Bi_Integral, Airy_Gi, Airy_Hi, Arctan_Integral, &
            bessel_i0_Integral, bessel_j0_Integral, bessel_k0_Integral, bessel_y0_Integral, &
            clausen, exp3_Integral, goodwin, BesselI_minus_StruveL, lobachevsky, stromgen, &
-           struve_h0, struve_h1, struve_l0, struve_l1, test_all_miscfun, file_test_miscfun
+           struve_h0, struve_h1, struve_l0, struve_l1, test_all_miscfun, file_test_miscfun, & 
+           Sph_Inter
  !___ Global Variables
  character(19),parameter :: file_test_miscfun='test_of_miscfun.err'
  real(DP),parameter :: halfeps=half*eps_DP,xhigh000=one/eps_DP,xneg11=-one/(sr2*sr5*tiny_DP), &
@@ -11016,6 +11047,35 @@ struve_h1_values, clausen_values, struve_l0_values
  logical :: setupMISC_done = .false.
 
  contains
+!*****************************************************************************80
+function Sph_Inter(Rbig,rsmall,Cdist)
+!!!!!!!!!!!
+!_________ Evaluate volume fraction of a smaller sphere (of radius rsmall) 
+!          that is cut by a larger sphere (of radius Rbig) when their centres 
+!          have distance Cdist. 
+!          At Cdist = 0            it is    Sph_Inter = 1;
+!          At Cdist < Rbig+rsmall  it is    Sph_Inter = 1;
+!          at Cdist > Rbig+rsmall  it is    Sph_Inter = 0.
+!____________________________________________________________________________
+implicit none
+real(DP),intent(IN) :: Rbig,rsmall,Cdist
+real(DP) :: Sph_Inter
+real(DP) :: pz1
+
+Sph_Inter=zero
+if (rsmall >= Rbig + eps_DP*Rbig) then 
+  print*,'Condition rsmall>Rbig : Sph_Inter error'
+  return
+endif
+if (Cdist<Rbig-rsmall) then
+  Sph_Inter=one
+else if (Cdist>Rbig+rsmall) then
+  Sph_Inter=zero
+else
+  pz1 = (Cdist*Cdist+(rsmall-Rbig)*(rsmall+Rbig))*half/Cdist
+  Sph_Inter = half + pz1*(pz1*pz1-three*rsmall*rsmall)/(four*(rsmall**3))
+endif
+end function Sph_Inter
  !*****************************************************************************80
  subroutine setupMISC
  !if (.not.setupMISC_done) call setupMISC
@@ -26373,8 +26433,254 @@ END subroutine XERROR
 !*********************************************************************72
 end module dQuadpack_AC
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!program deco
+!use nano_deftyp
+!use Silicon_Darwin
+!implicit real(DP)(a-h,o-z),integer(I4B)(i-n)
+!real(DP) :: val3(3)
+!
+!do i=5,40
+!  ee=real(i,DP)
+!  
+!  val3=Theta_of_E(ee)
+!  wlen=val3(1)
+!  thetad=val3(2)
+!  sig = darwid_sigma_Si111_wl(wlen)
+!  sigq= sig * degrees_to_radians * cos(thetad * degrees_to_radians) / wlen
+!  print*,' ',wlen,sig, sigq
+!enddo
+!
+!end program deco
+! F = ( G^5 + 2.69269 G^4 2w + 2.42843 G^3(2w)^2+ 4.47163G^2(2w)^3+ 0.07842 G(2w)^4 + (2w)^5 )^1/5
+!G=2*Sqrt[2log2]
+
+module For_PseVoi
+use nano_deftyp
+
+real(DP),parameter :: PVget_eta(3)=[1.36603d0, -0.47719d0, 0.11116d0], &
+                      PVget_gamma(0:5)=[one,2.69269d0, 2.42843d0, 4.47163d0, 0.07842d0, one ], &
+                      coga1=two*sqrt(two*log(two)),coga1is=one/coga1**2, omep=one-eps_DP, &
+                      a_Voigtfw=0.5346d0, b_Voigtfw = 0.2166d0, aqmb=a_Voigtfw*a_Voigtfw-b_Voigtfw
+                      
+integer(I4B),save :: kc
+
+contains
+!***********************************************
+function PseVoi_FWHM(w,sigma)
+implicit none
+real(DP),intent(IN) :: w,sigma
+real(DP) :: FG,FL,FG2,FL2,arr(0:5),F_GA, F_GA2,rath,tarh,rat,tar
+real(DP) :: PseVoi_FWHM
+
+! eval. FWHM of PV using coeff.s PVget_gamma and the FWHM of   Gaussian FG 
+!                                            and the FWHM of Lorentzian FL
+
+FG=coga1*sigma
+FL=two*w
+F_GA=sqrt(FG*FL)
+rat=FG/FL
+tar=FL/FG
+rath=sqrt(rat)
+tarh=sqrt(tar)
+!arr = [ FG2*FG2*FG, FG2*FG2*FL, FG2*FG*FL2, FG2*FL2*FL, FG*FL2*FL2, FL2*FL2*FL ]
+arr = [ rat*rat*rath, rat*rath, rath, tarh, tar*tarh, tar*tar*tarh ]
+PseVoi_FWHM = F_GA * exp(0.2d0*log(max(tiny_DP,sum(arr*PVget_gamma))))
+
+end function PseVoi_FWHM
+!***********************************************
+function PVrel_FUN(y)
+implicit none
+real(DP),intent(IN) :: y
+real(DP) :: arr(0:5),y2,y4
+real(DP) :: PVrel_FUN
+
+! eval. (FWHM of PV)/FL using coeff.s PVget_gamma and y = FG/FL
+
+y2=y*y
+y4=y2*y2
+arr = [ y4*y, y4, y2*y, y2, y, one ]
+PVrel_FUN = exp(0.2d0*log(max(tiny_DP,sum(arr*PVget_gamma))))
+
+end function PVrel_FUN
+!***********************************************
+function solve_FW(Z)
+implicit none
+real(DP),intent(IN) :: Z
+real(DP) :: solve_FW
+real(DP) :: x,y,xtr(2),dy,tolz
+
+kc=0
+xtr=[zero,Z]
+tolz=eps_DP*Z*two
+do
+ kc=kc+1
+ x=half*sum(xtr)
+ y=PVrel_FUN(x)
+ dy=y-Z
+ if (dy>tolz) then
+   xtr(2)=x
+ else if (dy<-tolz) then
+   xtr(1)=x
+ else
+   solve_FW=x
+   exit
+ endif
+enddo
+end function solve_FW
+!***********************************************
+function find_rel_fwlor(eta)
+implicit none
+real(DP),intent(IN) :: eta
+real(DP) :: find_rel_fwlor
+real(DP) :: x,y,xtr(2),dy,tole
+
+if (eta<sceps_DP) then
+  find_rel_fwlor=eta/PVget_eta(1)
+  return
+else if (eta>omep) then
+  find_rel_fwlor=one
+  return
+endif
+tole=eps_DP*max(eps_DP,eta)
+xtr=[zero,one]![eta*half,eta]
+do
+  x=half*sum(xtr)
+  y=PseVoi_ETA_R(x)
+  dy=y-eta
+  if (dy>tole) then
+    xtr(2)=x
+  else if (dy<-tole) then
+    xtr(1)=x
+  else
+    find_rel_fwlor=x
+    exit
+  endif
+enddo
+end function find_rel_fwlor
+!***********************************************
+function PseVoi_ETA(w,FW_PV)
+implicit none
+real(DP),intent(IN) :: w,FW_PV
+real(DP) :: lorel
+real(DP) :: PseVoi_ETA
+
+lorel = two*w/FW_PV
+
+PseVoi_ETA = PseVoi_ETA_R(lorel)
+
+end function PseVoi_ETA
+!***********************************************
+function PseVoi_ETA_R(L_rel)
+implicit none
+real(DP),intent(IN) :: L_rel
+real(DP) :: PseVoi_ETA_R
+
+
+PseVoi_ETA_R = L_rel * ( PVget_eta(1) + L_rel * ( PVget_eta(2) + L_rel * PVget_eta(3) ) )
+
+end function PseVoi_ETA_R
+!***********************************************
+subroutine Eta_FWPV_option(iop,aco1,aco2, w_lor, sigma_gau, tt_var)
+implicit none
+integer(I4B),intent(IN) :: iop
+real(DP),intent(IN) :: tt_var, aco1(4),aco2(3)
+real(DP),intent(OUT) :: w_lor, sigma_gau
+real(DP) :: tanth, xosth,athe, FW,Eta, aux3(3),aux4(4),FG,FL,tolw,y,Zval
+
+athe = degrees_to_radians * half * tt_var
+tanth=tan(athe)
+xosth=one/cos(athe)
+
+
+if (iop==1) then
+ !___ topas linear FULL-PV
+  aux3 = [one,tanth,xosth]
+  FW = sum(aco1(1:3)*aux3)
+  tolw=eps_DP*FW
+  Eta= sum(aco2(1:3)*aux3)
+  call Pseudo_2_True(FW,eta,tolw,FG,FL)
+  
+  w_lor = FL*half
+  sigma_gau = FG/coga1
+  ! 
+else if (iop==2) then
+ !___ Complicated Caglioti
+  aux3=[xosth,tanth,one]
+  aux4=[tanth*tanth,tanth,one,xosth*xosth]
+  FL=sum(aux3*aco2)
+  FG=sqrt(max(tiny_DP, sum(aux4*aco1) ))
+  
+  w_lor = FL*half
+  sigma_gau = FG/coga1
+endif
+
+end subroutine Eta_FWPV_option
+!***********************************************
+subroutine Pseudo_2_True(FW,Eta,tolw,FG,FL)
+implicit none
+real(DP),intent(IN) :: FW,Eta,tolw
+real(DP),intent(OUT) :: FG,FL
+real(DP) :: Zval,y
+
+IF (Eta < eps_DP) then
+  FG=FW
+  FL=zero
+else
+  FL = FW*find_rel_fwlor(Eta)
+  if (FL > tolw) then
+    Zval = FW/FL
+    y = solve_FW(Zval)
+    FG = y*FL
+  else
+    FL=zero
+    FG=FW
+  endif
+endif
+
+end subroutine Pseudo_2_True
+!***********************************************
+subroutine wid_gett(opt, arr6p, ttarr, sig2arr, wlarr)
+implicit none
+integer(I4B),intent(IN) :: opt
+real(DP),intent(IN) :: arr6p(6)
+real(DP),dimension(:),intent(IN) :: ttarr
+real(DP),dimension(size(ttarr)),intent(OUT) :: sig2arr,wlarr
+real(DP),dimension(size(ttarr))  :: aux_tanth,aux_secth,etarr,wwarr
+integer(I4B) :: n,i
+real(DP)     :: ttmin,ttmax
+
+n=size(ttarr)!; print*,'Hello ',n
+ttmin=ttarr(1)
+ttmax=ttarr(n)
+aux_tanth = tan(duet2r*ttarr)
+aux_secth = one/cos(duet2r*ttarr)
+if (opt==1) then !____ Caglioti case U V W, X Y Z
+  sig2arr = (arr6p(1)*aux_tanth + arr6p(2))*aux_tanth + arr6p(3) ! U *tan^2\theta + V*tan\theta+W
+  wlarr   = arr6p(4)*aux_tanth+arr6p(5)*aux_secth+arr6p(6)       ! X * tan\theta + Y/cos\theta + Z, see FullProf
+else if (opt==2) then !____ Masciocchi case ha hb hc, lora lorb lorc
+  wwarr = arr6p(1) + arr6p(2)*aux_tanth + arr6p(3)*aux_secth   !    FWHM total
+  etarr = arr6p(4) + arr6p(5)*aux_tanth + arr6p(6)*aux_secth   !    eta
+  do i=1,n
+    wlarr(i) = find_rel_fwlor(etarr(i)) * wwarr(i)                                     !    FWHM L
+    sig2arr(i) = wwarr(i)**2 + (-two*a_Voigtfw * wwarr(i) + aqmb *wlarr(i))*wlarr(i)   !    FWHM^2 G
+    !if (modulo(i,50)==0) print*,i,ttarr(i),aux_tanth(i),aux_secth(i),wwarr(i),etarr(i)
+  enddo
+else
+  stop 'Invalid IRF option'
+endif
+wlarr=half*wlarr     ! FWHM --> w
+sig2arr = max(zero,sig2arr * coga1is)  ! FWHM^2 --> sigma^2
+
+! do i=1,n
+!   print*,ttarr(i),sqrt(sig2arr(i))*coga1,wlarr(i)*two, wwarr(i)
+! enddo
+
+end subroutine wid_gett
+end module For_PseVoi
+!______________________________________________________________________________________________________________________________
 module specfun_AC
  use nano_deftyp
+ use For_PseVoi
  use SPECIAL_GAMMAERF
  use morespec
  use SPECIAL_CISI
@@ -26388,8 +26694,9 @@ module specfun_AC
 
 
 private
-public :: dqageAC
-public :: CoreCore, CoreShell, ShellShell, SphereSphere
+public :: wid_gett, find_rel_fwlor
+public :: dqageAC, sincf
+public :: CoreCore, CoreShell, ShellShell, SphereSphere, Sph_Inter
 public :: Spec_GAMMA,Spec_LNGAMMA,Spec_PSI,Spec_ERF,Spec_ERFC,Spec_ERFCX,Spec_DAW
 
 public :: Spec_BesselJ0,Spec_BesselJ1
@@ -26419,10 +26726,40 @@ END INTERFACE
 INTERFACE U_cheb
   module procedure Ucheb, UchebV
 END INTERFACE
+INTERFACE sincf
+  module procedure sink,sinkv
+END INTERFACE
 
 contains
 
 
+!*******************************************************************************
+function sink(x)
+implicit none
+real(DP),intent(IN) :: x
+real(DP) :: sink
+
+if (abs(x)>eps_DP) then
+  sink=sin(x)/x
+else
+  sink=one
+endif
+
+end function sink
+
+!*******************************************************************************
+function sinkv(x)
+implicit none
+real(DP),dimension(:),intent(IN) :: x
+real(DP),dimension(size(x))      :: sinkv
+
+where (abs(x)>eps_DP) 
+  sinkv=sin(x)/x
+elsewhere
+  sinkv=one
+end where
+
+end function sinkv
 !***********************************************
  FUNCTION Tcheb(dum, a,b,c,x)
   IMPLICIT NONE

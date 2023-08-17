@@ -18,7 +18,7 @@ real(DP) :: parapar(9),wl_tt(2)
 real(DP) :: aux01(3),aux02(3),aux_latvec(3),aux_Dvec(3),xyzP(3)
 integer(I4B) :: dr_step=1
 character(3) :: clushape
-character(512) :: pwd,rlx,xyzlatset,inpath, file_inp_cel,namestr, rl
+character(800) :: pwd,rlx,xyzlatset,inpath, file_inp_cel,namestr, rl
 character(8) :: pearsy
 Logical      :: DB_exist, isordnot, orthoXY, eqatpair, zerolay, &
                 isorigin, isoriginP, isoriginL, output_xyz, &

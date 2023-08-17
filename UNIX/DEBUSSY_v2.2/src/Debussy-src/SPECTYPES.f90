@@ -68,6 +68,13 @@ module SPECIAL_TYPES
      REAL(CP),DIMENSION(:),POINTER           :: t2data => NULL()
   END TYPE data_SETS
 
+  TYPE,PUBLIC     :: IRF_SETS
+     integer(I4B) :: flag_IRF
+     REAL(CP),DIMENSION(:),POINTER           :: G_sigma_sqrd => NULL()
+     REAL(CP),DIMENSION(:),POINTER           :: L_w => NULL()
+     REAL(CP),DIMENSION(:),POINTER           :: Triang => NULL()
+  END TYPE IRF_SETS
+
   TYPE,PUBLIC     :: Param_VA
      CHARACTER(5),DIMENSION(:),POINTER       :: NamePar => NULL()
      REAL(CP),DIMENSION(:,:),POINTER         :: PhasePar => NULL()

@@ -2151,7 +2151,8 @@ call GET_PWD(pwd=pwd,lpwd=lpwd)
 isam_read=0
 
 !if (len_trim(file_inp) > 13) then
-  if (file_inp(1:14)=='diffractor.inp') then 
+  lf=len_trim(file_inp) !!__RF 16.03.2018 
+  if (file_inp(1:lf)=='diffractor.inp') then 
     dwafil='#'
  ! endif   
  else     
@@ -2303,6 +2304,7 @@ do iii=1, istr
       dbstring=trim(adjustl(dbstring))
       lpha=len_trim(dbstring)
     case default SHAPE
+      print*, 'Error in the clusters shape supplied! The program stops!' 
       STOP
     end select SHAPE 
   else

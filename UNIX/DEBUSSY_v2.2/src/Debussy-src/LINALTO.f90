@@ -2149,6 +2149,90 @@ enddo
 
 end subroutine Cspline_FT
 !*************************************************************************
+subroutine PolySmooth(xin,yin,zin,VX)
+implicit none
+real(DP),dimension(:),intent(IN) :: xin,yin,zin
+real(DP),dimension(:,:),intent(OUT) :: VX
+integer(I4B) :: ik,kk,npx,nx,nx1,nx2,mr0,mr1,nsvd,i,ii,iu2,jp,k0,iv
+real(DP) :: gof, vcal0, sigcal0, x, y, z
+real(DP),parameter :: dtt0=0.0036d0
+integer(I4B),parameter :: nplr=12
+real(DP) :: reio(-50000:50000,2),chea(-nplr:nplr,2),Asvd(-nplr:nplr,4),Bsvd(-nplr:nplr),Xsvd(4),calcd(-nplr:nplr)
+real(DP) :: baseChe(-nplr:nplr,4),Hem(4,4),iHem(4,4)
+
+! iu2=find_unit()
+! open(iu2,status='replace',file='smoothing.xye')
+
+npx = size(xin)
+kk=0
+do ik=1,npx
+  x = xin(ik)
+  y = yin(ik)
+  z = zin(ik)
+  kk=kk+1
+  nx=nint(x/dtt0)
+  reio(nx,:)=[y,z]
+  if (kk==1) nx1=nx
+  nx2=nx
+enddo
+
+!allocate(xv(npx),yv(npx),zv(npx))
+iv = 0
+do k0=nx1,nx1+nplr-1
+  iv =iv +1
+  VX(iv,1) = k0*dtt0
+  VX(iv,2) = reio(k0,1)
+  VX(iv,3) = reio(k0,2)
+  !write(iu2,*)k0*dtt0,reio(k0,:),zero
+enddo
+do k0=nx1+nplr,nx2-nplr
+  mr0=max(nx1,k0-nplr)
+  mr1=mr0+2*nplr
+  if (mr1>nx2) then
+    mr1=nx2
+    mr0=max(nx1,mr1-2*nplr)
+  endif
+  chea=zero
+  do ii=mr0,mr1
+    if (reio(ii,2)<eps_DP) cycle
+    chea(ii-k0,1)=reio(ii,1)/reio(ii,2)
+    chea(ii-k0,2)=one/reio(ii,2)
+  enddo
+  nsvd=mr1-mr0+1
+  Bsvd=chea(:,1)
+  baseChe(:,1)=one
+  baseChe(:,2)=[(real(i,DP)*0.125d0,i=-nplr,nplr)]
+  do jp=3,4
+    baseChe(:,jp)=two*baseChe(:,2)*baseChe(:,jp-1)-baseChe(:,jp-2)
+  enddo
+  do jp=1,4
+    Asvd(:,jp)=baseChe(:,jp)*chea(mr0-k0:mr1-k0,2)
+  enddo
+  call SING_VAL_LSPRE(a=Asvd,b=Bsvd,thresh1=sceps_DP,x=Xsvd)
+  calcd = matmul(baseChe,Xsvd)
+  gof=sqrt(max(zero, sum((calcd*chea(mr0-k0:mr1-k0,2)-chea(mr0-k0:mr1-k0,1))**2)/&
+                     real(17-4,DP) ))
+  Hem=matmul(transpose(Asvd),Asvd)
+  iHem = PSEUDO_INV(A=Hem,tol=sceps_DP,posdef=1) 
+  sigcal0=sqrt(iHem(1,1)) * gof
+  vcal0=calcd(0)
+  iv = iv +1
+  VX(iv,1) = k0*dtt0
+  VX(iv,2) = vcal0
+  VX(iv,3) = sigcal0
+  !write(iu2,*)k0*dtt0,vcal0,sigcal0,gof
+enddo
+do k0=nx2-nplr+1,nx2
+  iv = iv +1
+  VX(iv,1) = k0*dtt0
+  VX(iv,2) = reio(k0,1)
+  VX(iv,3) = reio(k0,2)
+  !write(iu2,*)k0*dtt0,reio(k0,:),zero
+enddo
+! close(iu2)
+
+end subroutine PolySmooth
+!*************************************************************************
 subroutine find_ranges_IRF(dtt,ttmax, Gsig, Lwid, &
                            CapD_R, WobR_R, H_rec,N_rec,delta_rec, &
                            U_dir,N_dir,delta_dir)

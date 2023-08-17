@@ -34,14 +34,19 @@ real(DP),parameter     :: delta0=0.03_DP,eta=0.8_DP
 real(DP),allocatable     :: q(:),tt(:),aux1(:),Ic(:),Ic000(:),sI(:),aux2(:,:),aux3(:),sink(:),kos(:),occat(:),baa(:),xnat(:), &
                             samy(:,:),fp_fpp(:,:), divifac(:), &
                             LPF(:),aux4(:),neusl(:),conterm(:),summul(:),fofa(:,:),tefa(:,:),uaux(:),conterm_all(:), &
-                            avff2i(:), avff1i(:)
+                            avff2i(:), avff1i(:),fofa_inc(:,:),I_Menke(:,:),I_Menke1(:)
 integer(I4B),allocatable :: zaa(:),zaa0(:),nat(:), ndi(:),zappa(:,:),coupling_index(:), point_eqp(:), point_neqp(:),&
                             flag_ano(:)
-real(DP)     :: sams(sam1:sam2),qsmx(sam1:sam2),plono(2),fpfpp_EPDL97(2)
+real(DP)     :: sams(sam1:sam2),qsmx(sam1:sam2),plono(2),fpfpp_EPDL97(2),pola(2)
+real(DP)     :: scatcen(0:3),read6(6),ilo(1),ano2(2)
+real(DP),allocatable     :: xyzcoo(:,:,:),xyzocc(:,:)
+integer(I4B),allocatable :: cosp(:),xyz_nasp(:),uasp(:)
 integer(I4B) :: xray_0_neutron_1=0,xray_0_electron_1=0,outall,which_sam_step,do_sofq,ind,lrl
-character(512) :: rl, waff,step,path,kalamar,kalamari,rrll,lamp,rline,prova, inp_hkl, stob
+integer(I4B) :: xyz_count_at(0:118)=0,xyz_Z_at(0:118)=0,gaddr(0:118)
+character(512) :: rl, waff,step,path,kalamar,kalamari,rrll,lamp,rline,prova, inp_hkl, stob, xyz_file=''
 character(len=3) :: div_sofq_flag
 character(len=1) :: radtyp=' '
+character(len=2) :: asy='  '
 integer(I4B) :: I_do_compton = 0
 character(len=33) :: mark_knopfler
 type(nanoiav)  :: scal_niav
@@ -65,6 +70,7 @@ sams=delta0*(/(i,i=sam1,sam2)/)
 qsmx=0.5_DP*eta/sams
 which_sam_step=0
 imode=0
+tt_or_q=0
 nato=0
 iu=find_unit()
 outall=0
@@ -117,8 +123,9 @@ do
     div_sofq_flag = trim(adjustl(rl(5:ll)))
   else if (rl(1:4)=='ELEC') then
     read(rl(5:ll),*)xray_0_electron_1  
-  else if (rl(1:4)=='TWOT' .or. rl(1:4)=='RANG') then
+  else if (rl(1:4)=='TWOT' .or. rl(1:4)=='RANG' .or. rl(1:4)=='QRAN') then
     read(rl(5:ll),*,iostat=iost)tt0,tt1,dtt
+    if (rl(1:4)=='QRAN') tt_or_q=1
     if(iost/=0) then
       write(*,*) 'ERROR: wrong RANG = [min, max, step] values supplied! Program stops!'
       STOP
@@ -129,6 +136,8 @@ do
     read(rl(5:ll),*)plono
   else if (rl(1:4)=='OUTP') then
     read(rl(5:ll),*)outall
+  else if (rl(1:5)=='MENKE') then
+    read(rl(6:ll),*)xyz_file
   else if (rl(1:4)=='PATH') then
     path=trim(adjustl(rl(5:ll)))
     lpath=len_trim(path)
@@ -207,15 +216,21 @@ do
           STOP
         endif
     
-    
+  else if (rl(1:4)=='POLA') then
+    read(rl(5:ll),*)pola
+    if(iost/=0) then
+      write(*,*) 'ERROR: wrong value of POLA supplied! Assuming defaults 0.0 0.0'
+      pola(1) = zero
+      pola(2) = zero 
+    endif
   
   else if (rl(1:4)=='CMPT') then
     read(rl(5:ll),*,iostat=iost) I_do_compton
-        if(iost/=0) then
-          write(*,*) 'ERROR: wrong value of CMPT supplied! Program stops!'
-          STOP
-        endif
-        add_compton_x=(I_do_compton == 1)
+    if(iost/=0) then
+      write(*,*) 'ERROR: wrong value of CMPT supplied! Program stops!'
+      STOP
+    endif
+    add_compton_x=(I_do_compton == 1)
     
   else if (rl(1:4)=='NSCL') then
     read(rl(5:ll),*,iostat=iost)neusl(1:nato)
@@ -289,10 +304,10 @@ do j=1,nato
 enddo
 print*,' '
 
-
 npq=1+NINT((tt1-tt0)/dtt)
 allocate(q(npq),tt(npq),sink(npq),kos(npq),aux1(npq),Ic(npq),Ic000(npq),sI(npq),aux2(npq,nato),aux3(npq),aux4(npq),LPF(npq), &
-         uaux(npq),fofa(npq,nato),tefa(npq,nato),avff1i(npq),avff2i(npq),divifac(npq))
+         uaux(npq),fofa(npq,nato),tefa(npq,nato),avff1i(npq),avff2i(npq),divifac(npq),fofa_inc(npq,nato))
+fofa_inc=zero
 if (imode==0) then
   dtt=(tt1-tt0)/(npq-1)
   tt=dtt*(/(i,i=0,npq-1)/)+tt0
@@ -301,16 +316,28 @@ if (imode==0) then
   q0=minval(q)
   print*, ' '
   print'(a,g12.5)', ' Pattern simulation with constant 2-theta step: ', dtt
+  print*, '  ttmin ', tt0, '    ttmax ', tt1
   print*, ' '
 else if (imode==1) then
-  q0=two*sin(duet2r*tt0)/wavel
-  q1=two*sin(duet2r*tt1)/wavel
-  q1=max(q1,qsmx(1))
-  dq=(q1-q0)/(npq-1)
-  q=dq*(/(i,i=0,npq-1)/)+q0
-  tt=asin(0.5_DP*wavel*q)/duet2r
+  if (tt_or_q==0) then
+    q0=two*sin(duet2r*tt0)/wavel
+    q1=two*sin(duet2r*tt1)/wavel
+    print*, 
+    ! q1=max(q1,qsmx(1)) !!__RF 09.03.2018
+    dq=(q1-q0)/(npq-1)
+    q=dq*(/(i,i=0,npq-1)/)+q0
+    tt=asin(0.5_DP*wavel*q)/duet2r
+  else if (tt_or_q==1) then
+    q0=tt0
+    q1=tt1
+    ! q1=max(q1,qsmx(1)) !!__RF 09.03.2018
+    dq=dtt
+    q=dq*(/(i,i=0,npq-1)/)+q0
+    tt=asin(0.5_DP*wavel*q)/duet2r
+  endif
   print*, ' '
   print'(a,g12.5)', ' Pattern simulation with constant q step: ', dq
+  print*, '  qmin ', q0, '    qmax ', q1
   print*, ' '
 endif
 
@@ -324,9 +351,7 @@ endif
 
   if (which_sam_step>0) then
     isam=which_sam_step/30
-    print*,isam,which_sam_step
     if (q1>qsmx(isam)) then
-        print*,isam,qsmx(isam),sams(isam),q1
         stop 'Too high q for the chosen step.'
     endif
   else
@@ -401,13 +426,15 @@ endif
    print*,'ERROR: mishandled Delta/=sams(isam)! ',Delta,sams(isam)
    stop 'mishandled Delta/=sams(isam)!'
  endif
- 
+
+
  do j=1,nato
    if (radtyp=='x') then
      if (verbose) print*,'Radiation used: X-RAY '
      if (zaa(j)>0) then
        flag_ano(j)=1
        fofa(:,j) = occat(j)*FormFact(q=q,Z_e=zaa(j), radiation_type='x')
+       fofa_inc(:,j) = occat(j)*COMP_COMPTON_S(q=q, Z_e=zaa(j), wavelength=wavel, beam_pol_ang_ecc=pola)
        tefa(:,j) = exp(-unqua*q*q*baa(j))
        aux2(:,j) = (fofa(:,j)+fp_fpp(1,j))*tefa(:,j)
        if (verbose) print*,'Atom, Z, B, (USING fpri_Fdpri) ',j,zaa(j),baa(j)
@@ -415,10 +442,12 @@ endif
        aux2(:,j) = zero
        tefa(:,j) = one
        fofa(:,j) = zero
+       fofa_inc(:,j) = zero
      endif
    else if (radtyp=='n') then
      if (verbose) print*,'Radiation used: NEUTRON ',j,neusl(j),baa(j)
      fofa(:,j) = occat(j)*neusl(j) !FormFact(q=q,Z_e=zaa(j),radiation_type='n')
+     fofa_inc(:,j) = sqrt(sig_inc(zaa(j))*100.d0/(four*pi))
      tefa(:,j) = exp(-unqua*q*q*baa(j))
      aux2(:,j) = fofa(:,j)*tefa(:,j)
    else if (radtyp=='e') then
@@ -432,6 +461,8 @@ endif
     IF (verbose) print*,radtyp//'-fofa:',j1,minval(fofa(:,j1)),maxval(fofa(:,j1)),j2,minval(fofa(:,j2)),maxval(fofa(:,j2))
     IF (verbose) print*,radtyp//'-aux2:',j1,minval(aux2(:,j1)),maxval(aux2(:,j1)),j2,minval(aux2(:,j2)),maxval(aux2(:,j2))
     IF (verbose) print*,radtyp//'-tefa:',j1,minval(tefa(:,j1)),maxval(tefa(:,j1)),j2,minval(tefa(:,j2)),maxval(tefa(:,j2))
+    IF (verbose) print*,radtyp//'-tefa:',j1,minval(fofa_inc(:,j1)),maxval(fofa_inc(:,j1)),j2,minval(fofa_inc(:,j2)),&
+           maxval(fofa_inc(:,j2))
  enddo
  
  IF (verbose) print*,'Allocating things',nato,n_at_pair,ndimens
@@ -568,15 +599,17 @@ if (do_SofQ==0) then
   aux4=exp(ronald*q*q)
   aux3 = Pi2*q*sams(isam)
   kos=cos(aux3)
-  if (.not.got0) then
-    sink = aux4*sin(aux3)/aux3
-  else
-    where (abs(q)<eps_DP)
-      sink = aux4
-    elsewhere
-      sink= aux4*sin(aux3)/aux3
-    end where
-  endif
+  
+  sink=aux4*sincf(aux3)
+!   if (.not.got0) then
+!     sink = aux4*sin(aux3)/aux3
+!   else
+!     where (abs(q)<eps_DP)
+!       sink = aux4
+!     elsewhere
+!       sink= aux4*sin(aux3)/aux3
+!     end where
+!   endif
   IF (verbose) print*,'sinc_C: ',maxval(sink),minval(sink),maxval(abs(sink)),minval(abs(sink))
   do kk=1,n_at_pair
     j1=zappa(1,kk)
@@ -599,6 +632,13 @@ if (do_SofQ==0) then
     IF (verbose) print*,'aux2:',j1,minval(aux2(:,j1)),maxval(aux2(:,j1)),j2,minval(aux2(:,j2)),maxval(aux2(:,j2))
     IF (verbose) print*,'tefa:',j1,minval(tefa(:,j1)),maxval(tefa(:,j1)),j2,minval(tefa(:,j2)),maxval(tefa(:,j2))
   enddo
+  
+ IF (add_compton_x .and. radtyp=='x') then 
+  do i=1,nato
+     Ic=Ic+fofa_inc(:,i)*xnat(i)
+   enddo 
+  ENDIF
+  
   Ic = Ic+Ic000
   if (maxval(abs(lpf-one))>sceps_DP) Ic=Ic*lpf
 
@@ -606,11 +646,14 @@ if (do_SofQ==0) then
     ack = xmaxi/maxval(Ic)
     Ic=Ic*ack
     Ic000=Ic000*ack
+  else
+    ack=one
   endif
   IF (verbose) print*,'Ical_min, Ical_max, I0_min, I0_max ',minval(Ic),maxval(Ic),minval(Ic000),maxval(Ic000)
 
 
 else if (do_SofQ==1) then
+  ack=one
   print*,'Evaluating S(q) - not including the constant term and scaling by '//div_sofq_flag
   IF (verbose)  print*,iflag_conterm_all,iflag_conterm
   
@@ -639,50 +682,53 @@ else if (do_SofQ==1) then
   divifac = zero
   divifac0= zero
   do ja=1,nato
+    xnat_occ=xnat(ja)*occat(ja)
     if (zaa(ja)==0) cycle
     if (radtyp=='x') then
       if (verbose) print*,'Radiation used: X-RAY '
-      if (i_sa_vs_as==1) then
+      if (i_sa_vs_as==1) then ! to be checked case of square averaged
         if (idivf==1) then
-          divifac = divifac + xnat(ja)*(fofa(:,ja)**2)
+          divifac = divifac + xnat_occ*(fofa(:,ja)**2)
         else if (idivf==2) then
-          divifac = divifac + xnat(ja)*real(Zaa(ja)**2,DP)
+          divifac = divifac + xnat_occ*real(Zaa(ja)**2,DP)
         endif
       else if (i_sa_vs_as==2) then
         if (idivf==1) then
-          divifac=divifac+xnat(ja)*(fofa(:,ja))
+          divifac=divifac+xnat_occ*(fofa(:,ja))
         else if (idivf==2) then
-          divifac=divifac+xnat(ja)*real(Zaa(ja),DP)
+          divifac=divifac+xnat_occ*real(Zaa(ja),DP)
         endif
       endif
     else if (radtyp=='e') then
       if (verbose) print*,'Radiation used: ELECTRON '
       if (i_sa_vs_as==1) then
         if (idivf==1) then
-          divifac=divifac+xnat(ja)*(fofa(:,ja)**2)
+          divifac=divifac+xnat_occ*(fofa(:,ja)**2)
         else if (idivf==2) then
-          divifac=divifac+xnat(ja)*real(Zaa(ja)**2,DP)
+          divifac=divifac+xnat_occ*real(Zaa(ja)**2,DP)
         endif
       else if (i_sa_vs_as==2) then
         if (idivf==1) then
-          divifac=divifac+xnat(ja)*(fofa(:,ja))
+          divifac=divifac+xnat_occ*(fofa(:,ja))
         else if (idivf==2) then
-          divifac=divifac+xnat(ja)*real(Zaa(ja),DP)
+          divifac=divifac+xnat_occ*real(Zaa(ja),DP)
         endif
       endif
     else if (radtyp=='n') then
       if (verbose) print*,'Radiation used: NEUTRON ',j,neusl(j),baa(j)
       if (i_sa_vs_as==1) then
-        divifac=divifac+xnat(ja)*(fofa(:,ja)**2)
+        divifac=divifac+xnat_occ*(fofa(:,ja)**2)
       else if (i_sa_vs_as==2) then
-        divifac=divifac+xnat(ja)*(fofa(:,ja))
+        divifac=divifac+xnat_occ*(fofa(:,ja))
       endif
     endif
-    divifac0=divifac0+xnat(ja)
+    divifac0=divifac0+xnat_occ
   enddo
   odivifac0=one/divifac0
 !  divifac=divifac*odivifac0
-  if (i_sa_vs_as==2) divifac=divifac**2
+  if (i_sa_vs_as==2) then
+    divifac=(divifac*odivifac0)**2
+  endif
   
   Ic = zero
   Ic000 = zero
@@ -691,30 +737,43 @@ else if (do_SofQ==1) then
   aux4=exp(ronald*q*q)
   aux3 = Pi2*q*sams(isam)
   kos=cos(aux3)
-  if (.not.got0) then
-    sink = aux4*sin(aux3)/aux3
-  else
-    sink(1) = aux4(1)
-    sink(2:)= aux4(2:)*sin(aux3(2:))/aux3(2:)
-  endif
+  
+  sink = aux4*sincf(aux3)
+!   if (.not.got0) then
+!     sink = aux4*sin(aux3)/aux3
+!   else
+!     sink(1) = aux4(1)
+!     sink(2:)= aux4(2:)*sin(aux3(2:))/aux3(2:)
+!   endif
   IF (verbose) print*,'sinc_C: ',maxval(sink),minval(sink),maxval(abs(sink)),minval(abs(sink))
   do kk=1,n_at_pair
     j1=zappa(1,kk)
     j2=zappa(2,kk)
+    occ_pair=occat(j1)*occat(j2)
     if (abs(conterm_all(kk)) > sceps_DP) then
       if (max(flag_ano(j1),flag_ano(j2))>0) then
-        Ic000=Ic000+conterm_all(kk)*( (fofa(:,j1)+fp_fpp(1,j1))*(fofa(:,j2)+fp_fpp(1,j2))+fp_fpp(2,j1)*fp_fpp(2,j2) )
+        Ic000=Ic000+conterm_all(kk)*( (fofa(:,j1)+fp_fpp(1,j1))*(fofa(:,j2)+fp_fpp(1,j2))+fp_fpp(2,j1)*fp_fpp(2,j2) ) &
+                    * occ_pair
       else
-        Ic000=Ic000+conterm_all(kk)*fofa(:,j1)*fofa(:,j2)
+        Ic000=Ic000+conterm_all(kk)*fofa(:,j1)*fofa(:,j2) &
+                    * occ_pair
       endif
     endif
     if (max(flag_ano(j1),flag_ano(j2))>0) then
-      aux1 = (aux2(:,j1)*aux2(:,j2)+tefa(:,j1)*tefa(:,j2)*fp_fpp(2,j1)*fp_fpp(2,j2))*sink
+      aux1 = (aux2(:,j1)*aux2(:,j2)+tefa(:,j1)*tefa(:,j2)*fp_fpp(2,j1)*fp_fpp(2,j2))*sink &
+                    * occ_pair
     else
-      aux1 = aux2(:,j1)*aux2(:,j2)*sink
+      aux1 = aux2(:,j1)*aux2(:,j2)*sink &
+                    * occ_pair
     endif
     Ic = Ic + aux1 * U_cheb(dum=vec1_arg, c=samy(:,kk),x=kos)
   enddo
+
+   IF (add_compton_x .and. radtyp=='x') then 
+  do i=1,nato
+     Ic=Ic+(fofa_inc(:,i)*xnat(i))*ack  !total Compton  = matmul(fofa_inc(:,:),xnat(:)) * ack [ ack is the plotting scale ]
+   enddo 
+  ENDIF
 
 endif
 
@@ -757,32 +816,234 @@ do
 enddo
 
 
+!!!___here Menke correction to be in output as additional column
 
+gaddr=-1
+xyz_file=trim(adjustl(xyz_file))
+lfxyz=len_trim(xyz_file)
+if (lfxyz>0) then !_________ there is a given .xyz file...
+  allocate(I_Menke(npq,2),I_Menke1(npq))
+  I_Menke=zero; I_Menke1=zero
+  iuxyz=find_unit()
+  scatcen=zero
+  open(iuxyz,status='old',action='read',file=xyz_file(1:lfxyz))
+  read(iuxyz,*)n_at_xyz
+  read(iuxyz,*)
+  
+  read(iuxyz,'(a)')rl
+  call CLEAN_LINE(rl)
+  rl=trim(adjustl(rl))
+  lrl=len_trim(rl)
+  asy=rl(1:2)
+  do i=0,n_elements
+    IF (asy /= symb_of_Z(i)) CYCLE
+    iZa = i
+    EXIT
+  enddo
+  islab=0
+  read(rl(3:lrl),*,iostat=io6)read6
+  if (io6==0) then
+    nuli=6
+    islab=1
+  else
+    read(rl(3:lrl),*,iostat=io5)read6(1:5)
+    if (io5==0) then
+      nuli=5
+    else
+      read(rl(3:lrl),*,iostat=io4)read6(1:4)
+      if (io4==0) then
+        nuli=4
+      else
+        read(rl(3:lrl),*,iostat=io3)read6(1:3)
+        if (io3==0) then
+          nuli=3
+        else
+          print*,'INVALID .xyz file (less than 3 coordinates per atom)'
+          stop 'INVALID .xyz file (less than 3 coordinates per atom)'
+        endif
+      endif
+    endif
+  endif
+  rewind(iuxyz)
+  allocate(cosp(nato),xyz_nasp(nato),uasp(nato))
+  xyz_nasp=0
+  read(iuxyz,*)
+  read(iuxyz,*)
+  nfsp=0
+  n_all_at = sum(nat)
+  do j=1,n_all_at
+    read(iuxyz,'(a)')rl
+    call CLEAN_LINE(rl)
+    rl=trim(adjustl(rl))
+    lrl=len_trim(rl)
+    asy=rl(1:2)
+    read(rl(3:lrl),*)read6(1:nuli)
+    do i=0,n_elements
+      IF (asy /= symb_of_Z(i)) CYCLE
+      iZa = i
+      EXIT
+    enddo
+    if (islab==0) then
+      if (nfsp>0) then
+        iiza=minval(abs(iZa-uasp(1:nfsp)))
+      else
+        iiza=1
+      endif
+      if (iiza>0) then
+        nfsp=nfsp+1
+        uasp(nfsp)=iZa
+        ksp=nfsp
+      else
+        ilo=minloc(abs(iZa-uasp(1:nfsp)))
+        ksp=ilo(1)
+      endif
+    else
+      ksp=NINT(read6(6))
+      uasp(ksp)=iZa
+    endif
+    xyz_nasp(ksp)=xyz_nasp(ksp)+1
+  enddo
+  rewind(iuxyz)
+  read(iuxyz,*)
+  read(iuxyz,*)
+
+  uasp = zaa  !!! overriding the Z ...
+  naallo=maxval(xyz_nasp)
+  allocate(xyzcoo(3,naallo,nato),xyzocc(naallo,nato))
+  xyzocc = zero
+
+  cosp=0
+  do j=1,n_all_at
+    read(iuxyz,'(a)')rl
+    call CLEAN_LINE(rl)
+    rl=trim(adjustl(rl))
+    lrl=len_trim(rl)
+    asy=rl(1:2)
+    do i=0,n_elements
+      IF (asy /= symb_of_Z(i)) CYCLE
+      iZa = i
+      EXIT
+    enddo
+    
+    if (islab==0) then
+      ilo=minloc(abs(iZa-uasp(1:nfsp)))
+      ksp=ilo(1)
+    else
+      ksp=NINT(read6(6))
+    endif
+    cosp(ksp)=cosp(ksp)+1
+    
+    if (radtyp=='x'.or.radtyp=='e') then
+      ano2=Anomalous_X(Z_e=uasp(ksp), wavelength=wavel)
+      wskatr=real(uasp(ksp),DP)+ano2(1)
+      wskati=ano2(2)
+    else if (radtyp=='n') then
+      wskati=zero
+      wskatr=neusl(ksp)
+    endif
+    wskata=sqrt(wskatr**2+wskati**2)
+    
+    read(rl(3:lrl),*)read6(1:nuli)
+    xyzcoo(:,cosp(ksp),ksp) = read6(1:3)
+    if (nuli>=5) then
+      xyzocc(cosp(ksp),ksp) = read6(5)
+    else if (nuli==4) then
+      xyzocc(cosp(ksp),ksp) = read6(4)
+    else if (nuli==3) then
+      xyzocc(cosp(ksp),ksp) = one
+    endif
+    scatcen(0)=scatcen(0) + xyzocc(cosp(ksp),ksp)*wskata
+    scatcen(1:3)=scatcen(1:3) + xyzocc(cosp(ksp),ksp)*xyzcoo(:,cosp(ksp),ksp)*wskata
+    
+  enddo
+  close(iuxyz)
+  print*,'sc',scatcen
+  scatcen(1:3)=scatcen(1:3)/scatcen(0)
+  print*,'sc',scatcen
+  do ia=1,nato
+    do i2=1,xyz_nasp(ia)
+      xyzcoo(:,i2,ia)=xyzcoo(:,i2,ia)-scatcen(1:3)
+    enddo
+  enddo
+  
+  
+  do ia=1,nato
+    do i2=1,xyz_nasp(ia)
+      xl=pi2*sqrt(sum(xyzcoo(:,i2,ia)**2))
+      sink=sincf(xl*q)
+      I_Menke(:,1)=I_Menke(:,1)+ occat(ia) * xyzocc(i2,ia)*( fofa(:,ia)+fp_fpp(1,ia) )*sink
+      I_Menke(:,2)=I_Menke(:,2)+ occat(ia) * xyzocc(i2,ia)*fp_fpp(2,ia)*sink
+    enddo
+  enddo
+  if (ANY(ISNAN(I_Menke))) print*,'here'
+  !!!! The occupancies occat read from the diffractor.inp are MULTIPLIED ON TOP of those read from the .xyz 
+  !!!! as well as those implied in the .smp file
+!   I_Menke(:,1) = sqrt(I_Menke(:,1)*I_Menke(:,1)+I_Menke(:,2)*I_Menke(:,2))
+  I_Menke1(:) = I_Menke(:,1)*I_Menke(:,1)+I_Menke(:,2)*I_Menke(:,2)
+  
+endif
 
 open(iuu,status='replace',file=kalamar(lasts+1:lkal-4)//mark_knopfler(1:lmark_knopfler)//'.tqi')
 
 write(iuu,*)'#',npq,maxval(Ic),xnattotal,tt0,tt1,dtt,wavel,divifac0
-if (do_SofQ==1) then
-  IF (outall==1) then
-    do i=1,npq
-      write(iuu,*)tt(i),q(i),divifac0*Ic(i)/divifac(i),Ic000(i),divifac(i),LPF(i),kos(i),aux4(i),aux2(i,:),&
-                  fofa(i,:),tefa(i,:)
-    enddo
-  ELSE
-    do i=1,npq
-      write(iuu,*)tt(i),q(i),divifac0*Ic(i)/divifac(i),Ic000(i),divifac(i)
-    enddo
+
+
+if (lfxyz>0) then !___ with Menke
+
+  if (do_SofQ==1) then
+    IF (outall==1) then
+      do i=1,npq
+!        write(iuu,*)tt(i),q(i),divifac0*Ic(i)/divifac(i),Ic000(i),divifac(i),LPF(i),kos(i),aux4(i),aux2(i,:),&
+!                    fofa(i,:),tefa(i,:),I_Menke(i,1)
+        write(iuu,*)tt(i),q(i),Ic(i)/divifac(i),Ic000(i),divifac(i),LPF(i),kos(i),aux4(i),aux2(i,:),&
+                    fofa(i,:),tefa(i,:),&
+                    SUM(fofa_inc(i,:)*xnat), & !!! total Compton  = matmul(fofa_inc(:,:),xnat(:)) * ack [ ack is the plotting scale ]
+                    I_Menke1(i)
+      enddo
+    ELSE
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i)/divifac(i),Ic000(i),divifac(i),I_Menke1(i)
+      enddo
+    endif
+  else if (do_SofQ==0) then
+    IF (outall==1) then
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i),Ic000(i),1,LPF(i),kos(i),aux4(i),aux2(i,:),fofa(i,:),tefa(i,:),&
+                    SUM(fofa_inc(i,:)*xnat)*ack, & !!! total Compton  = matmul(fofa_inc(:,:),xnat(:)) * ack [ ack is the plotting scale ]
+                    I_Menke1(i)*ack 
+      enddo 
+    ELSE
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i),Ic000(i),1,I_Menke1(i)
+      enddo
+    endif
   endif
-else if (do_SofQ==0) then
-  IF (outall==1) then
-    do i=1,npq
-      write(iuu,*)tt(i),q(i),Ic(i),Ic000(i),1,LPF(i),kos(i),aux4(i),aux2(i,:),fofa(i,:),tefa(i,:)
-    enddo
-  ELSE
-    do i=1,npq
-      write(iuu,*)tt(i),q(i),Ic(i),Ic000(i),1
-    enddo
+  
+else !___ no Menke
+
+  if (do_SofQ==1) then
+    IF (outall==1) then
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i)/divifac(i),Ic000(i),divifac(i),LPF(i),kos(i),aux4(i),aux2(i,:),&
+                    fofa(i,:),tefa(i,:)
+      enddo
+    ELSE
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i)/divifac(i),Ic000(i),divifac(i)
+      enddo
+    endif
+  else if (do_SofQ==0) then
+    IF (outall==1) then
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i),Ic000(i),1,LPF(i),kos(i),aux4(i),aux2(i,:),fofa(i,:),tefa(i,:),fofa_inc(i,:)
+      enddo
+    ELSE
+      do i=1,npq
+        write(iuu,*)tt(i),q(i),Ic(i),Ic000(i),1
+      enddo
+    endif
   endif
+  
 endif
 close(iuu)
 
@@ -793,8 +1054,8 @@ print*, '******* JOB PATTERN DONE! *******'
 
 !if (.not.get_the_hkls) stop 'Finished (no HKL requested)'
 
- ! inp_hkl(1:14)='diffractor.inp'
- ! ll=len_trim(inp_hkl)
- ! call hkl_gen(inp_hkl(1:ll))
+ !  inp_hkl(1:14)='diffractor.inp'
+!   ll=len_trim(inp_hkl)
+!   call hkl_gen(inp_hkl(1:ll))
 
 end program no_woman_no_cry

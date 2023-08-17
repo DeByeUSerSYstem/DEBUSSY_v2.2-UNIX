@@ -805,7 +805,7 @@ SINC_ONE=pi2*d0*qx
 where(SINC_ONE>sceps_DP) 
   SINC_ONE=mu0*sin(SINC_ONE)/SINC_ONE
 elsewhere
-  SINC_ONE=one
+  SINC_ONE=mu0
 end where
 
 end function SINC_ONE
@@ -2773,7 +2773,7 @@ do icel=1,ncelltypes
         enddo
       else if (geom=='HEX') then
         do jsiz=1,maxval(NCL2MK)
-          growing_diam(jsiz,:) = [two*SQRT((cell_base_area*(1+3*jsiz*(jsiz+1)))/pi), c*jsiz]
+          growing_diam(jsiz,:) = [two*SQRT((cell_base_area*(1+3*(jsiz-1)*(jsiz)))/pi), c*jsiz]
         enddo
       else if (geom=='CYL') then
         do jsiz=1,maxval(NCL2MK)
@@ -3182,7 +3182,7 @@ do icel=1,ncelltypes
         enddo
       else if (geom=='HEX') then
         do jsiz=1,maxval(NCL2MK)
-          growing_diam(jsiz,:) = [two*SQRT((cell_base_area*(1+3*jsiz*(jsiz+1)))/pi)  , c*jsiz]
+          growing_diam(jsiz,:) = [two*SQRT((cell_base_area*(1+3*(jsiz-1)*(jsiz)))/pi)  , c*jsiz]
         enddo
       else if (geom=='CYL') then
         do jsiz=1,maxval(NCL2MK)
@@ -4187,7 +4187,7 @@ real(DP), intent(OUT) :: dclu(2),parapar(9),smoothing_width, wlenttmax(2)
 logical, intent(OUT)  :: do_allsizes, sample_allsteps, occ1, do_the_xyz
 character(8),intent(OUT)  :: para_model
 
-character(132) :: pwd,rl
+character(512) :: pwd,rl
 character(4) :: kwdi
 character(3) :: samode
 character(32) :: clu2make,rline

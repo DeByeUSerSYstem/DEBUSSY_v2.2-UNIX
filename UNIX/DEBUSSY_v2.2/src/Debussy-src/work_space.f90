@@ -22,6 +22,7 @@ MODULE OBS_WSPACE
 Use SPECIAL_TYPES
 
  TYPE(data_SETS),DIMENSION(:),pointer,save   :: OBS_DATA_W => NULL()
+ TYPE(IRF_SETS),DIMENSION(:),pointer,save    :: IRF_CURVES_W => NULL()
  INTEGER(I4B),DIMENSION(:), pointer,save     :: NDATA_W => NULL()
  INTEGER(I4B),DIMENSION(:), pointer,save     :: ILAMBDA_W => NULL()
  INTEGER(I4B),DIMENSION(:), pointer,save     :: MONO_POSIT_W => NULL()
@@ -53,6 +54,7 @@ Use SPECIAL_TYPES
  LOGICAL, pointer,save                       :: SIM_NODATA_W => NULL()
  TYPE(PHA_INFO),DIMENSION(:),pointer,save    :: ALL_PHA_INFO_W => NULL()
  LOGICAL,save                                :: OBS_WSPACE_DONE = .false.
+ INTEGER(I4B),DIMENSION(:),pointer,save      :: INST_FLAG_W => NULL()
 
 !DATA NSTR_W/NULL()/
 !DATA NSET_W/NULL()/
@@ -777,6 +779,7 @@ use BACKCO
 use SICUT
 use ATOMIX
 use NANO_TYPES
+use specfun_AC
 
  integer(I4B),parameter :: NumParSiz = 5, NumParStrain = 4, NumParPha = NumParSiz+NumParStrain, &
                            NumPar_DW=3,NumPar_Oc=3,NumPar_at = NumPar_DW+NumPar_Oc, NumPar_at_red = 2
@@ -856,6 +859,19 @@ use NANO_TYPES
    INTEGER(I2B),DIMENSION(:,:),allocatable :: sigbase_sep
    INTEGER(I2B),DIMENSION(:),allocatable :: cold_start
  END TYPE AMOR_TERMS
+ 
+  TYPE,PUBLIC     :: Edelic
+     integer(I4B) :: lark1,lark2
+     REAL(CP),DIMENSION(:),allocatable      :: Meadows
+  END TYPE Edelic
+
+  TYPE,PUBLIC     :: Psych
+     TYPE(Edelic),DIMENSION(:),allocatable  :: Grantchester
+  END TYPE Psych
+  
+  TYPE(Psych),DIMENSION(:,:),allocatable,save :: Umma_Gumma
+  LOGICAL,DIMENSION(:,:),allocatable,save     :: INST_READY
+  INTEGER(I4B),SAVE                           :: N_INST_PASS=3
  
  integer(I4B),allocatable,save  :: ncut_0_off(:,:)
  real(DP),allocatable,save      :: DISTRU(:,:,:),E_DISTRU(:,:,:)
@@ -994,6 +1010,35 @@ contains
 !    enddo  
     
 !__________________________________ end new (or washed with Perlana)
+
+
+!________________ SPACE FOR INSTRUMENTAL IRF
+
+    if (ANY(INST_FLAG_W(:) /= 0)) then
+      if (ALLOCATED(Umma_Gumma)) deallocate(Umma_Gumma)
+      if (ALLOCATED(INST_READY)) deallocate(INST_READY)
+      ALLOCATE(Umma_Gumma(NSET_W,N_INST_PASS),INST_READY(NSET_W,N_INST_PASS))
+      do i=1,NSET_W
+        if (INST_FLAG_W(i) /= 0) then
+          do j=1,N_INST_PASS
+            ALLOCATE( Umma_Gumma(i,j)%Grantchester( NDATA_W(i) ) )
+            INST_READY(i,j) = .false.
+          enddo
+        else
+          do j=1,N_INST_PASS
+          !___ not using IRF for this set?
+            ALLOCATE( Umma_Gumma(i,j)%Grantchester( 0:0 ) )
+            Umma_Gumma(i,j)%Grantchester(0)%lark1=0
+            Umma_Gumma(i,j)%Grantchester(0)%lark2=0
+            ALLOCATE(Umma_Gumma(i,j)%Grantchester(0)%Meadows(0:0))
+            Umma_Gumma(i,j)%Grantchester(1)%Meadows(0)=zero
+            INST_READY(i,j) = .true.
+          enddo
+        endif
+      enddo
+    endif
+
+!________________ SPACE FOR INSTRUMENTAL IRF - done
 
     ALLOCATE(AMORPHOUS(NSET_W))
     IF (DO_AMORPH_W) THEN

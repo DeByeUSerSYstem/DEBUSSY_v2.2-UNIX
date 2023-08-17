@@ -54,7 +54,10 @@ print*, ' '
 print*,'     Running MK_BALL Program    '
 print*, ' '
 
-
+ !!FB cputime
+ call CPU_TIME(t0)
+ 
+ 
 call openread_clumkX(clumkfn=file_inp0, &
                      rlx=rlx,lrlx=lrlx, &
                      itra=itra,nclu=NCL2MK,dclu=DCL2MK, &
@@ -723,6 +726,10 @@ do ksph=0,NCL2MK(1)
 enddo
 close(iucon)
 
+!! FB cputime
+ call CPU_TIME(t1)
+  write(*,*)  '------->   CPU time = ',t1-t0,' s'
+  
 print*, ' '
 print*, '******* JOB SMP-'//clushape//' DONE! *******'
 

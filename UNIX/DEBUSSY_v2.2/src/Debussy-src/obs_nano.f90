@@ -21,8 +21,10 @@
 MODULE DATA_ASREAD
 use INPUT_DATA
 use rhapsody_in_blue
+use specfun_AC
 
 TYPE(data_SETS),DIMENSION(:),POINTER        :: Obs_data => NULL()
+TYPE(IRF_SETS),DIMENSION(:),POINTER         :: IRF_Curves => NULL()
 
 !**************
 CONTAINS
@@ -38,7 +40,7 @@ real(DP)  :: check_step,adiff_step,xckrs,ggg_step,xye(3)
 integer(I4B) :: kntx,nskip,iskip,intx,astat2,nwksf4
 
 
-ALLOCATE(Obs_data(NSET))
+ALLOCATE(Obs_data(NSET),IRF_Curves(NSET))
 
 DO i=1,NSET
   IF (TRIM(TECHNIQUE(i))/='XRD' .and. TRIM(TECHNIQUE(i))/='NPD' .and. &
@@ -60,6 +62,21 @@ DO i=1,NSET
       Obs_data(i)%qdata(:,iwl) = (two/lambdas(iwl,i)) * [( sin(duet2r*Obs_data(i)%t2data(j)), j=1,NDATA(i) )] 
     enddo
     QMAX_D = MAX(QMAX_D,MAXVAL(Obs_data(i)%qdata))
+    
+    IF (INST_FLAG(i) > 0) then
+      ALLOCATE(IRF_Curves(i)%G_sigma_sqrd(NDATA(i)), &
+               IRF_Curves(i)%L_w(NDATA(i)), &
+               IRF_Curves(i)%Triang(NDATA(i)) )
+      IRF_Curves(i)%G_sigma_sqrd = zero; IRF_Curves(i)%L_w = zero; IRF_Curves(i)%Triang = zero
+      call wid_gett(opt=INST_FLAG(i), arr6p=INST_6P_var(i,1:6), ttarr=Obs_data(i)%t2data, &
+                    sig2arr = IRF_Curves(i)%G_sigma_sqrd, wlarr=IRF_Curves(i)%L_w)
+      where (abs(Obs_data(i)%t2data-90.d0) > sceps_DP)
+        IRF_Curves(i)%Triang = INST_6P_var(i,7) / tan(Obs_data(i)%t2data*degrees_to_radians)
+      elsewhere
+        IRF_Curves(i)%Triang = zero
+      end where
+    ENDIF
+
     cycle
   endif
   
@@ -90,6 +107,21 @@ DO i=1,NSET
     print'(3(a,1x,f20.12,/))','READING DATA: detected angular step Dtt0 = ',ANGRANGE(3,i),&
                               '              decimated every n          = ',real(N_EVERY(i),DP), &
                               '              decimated step Dtt1        = ',check_step
+    
+    
+    IF (INST_FLAG(i) > 0) then
+      ALLOCATE(IRF_Curves(i)%G_sigma_sqrd(NDATA(i)), &
+               IRF_Curves(i)%L_w(NDATA(i)), &
+               IRF_Curves(i)%Triang(NDATA(i)) )
+      IRF_Curves(i)%G_sigma_sqrd = zero; IRF_Curves(i)%L_w = zero; IRF_Curves(i)%Triang = zero
+      call wid_gett(opt=INST_FLAG(i), arr6p=INST_6P_var(i,1:6), ttarr=Obs_data(i)%t2data, &
+                    sig2arr = IRF_Curves(i)%G_sigma_sqrd, wlarr=IRF_Curves(i)%L_w)
+      where (abs(Obs_data(i)%t2data-90.d0) > sceps_DP)
+        IRF_Curves(i)%Triang = INST_6P_var(i,7) / tan(Obs_data(i)%t2data*degrees_to_radians)
+      elsewhere
+        IRF_Curves(i)%Triang = zero
+      end where
+    ENDIF
     
     cycle
   endif
@@ -238,6 +270,20 @@ DO i=1,NSET
     enddo
   enddo
   QMAX_D = MAX(QMAX_D,MAXVAL(Obs_data(i)%qdata))
+  
+  IF (INST_FLAG(i) > 0) then
+    ALLOCATE(IRF_Curves(i)%G_sigma_sqrd(NDATA(i)), &
+             IRF_Curves(i)%L_w(NDATA(i)), &
+             IRF_Curves(i)%Triang(NDATA(i)) )
+    IRF_Curves(i)%G_sigma_sqrd = zero; IRF_Curves(i)%L_w = zero; IRF_Curves(i)%Triang = zero
+    call wid_gett(opt=INST_FLAG(i), arr6p=INST_6P_var(i,1:6), ttarr=Obs_data(i)%t2data, &
+                  sig2arr = IRF_Curves(i)%G_sigma_sqrd, wlarr=IRF_Curves(i)%L_w)
+    where (abs(Obs_data(i)%t2data-90.d0) > sceps_DP)
+      IRF_Curves(i)%Triang = INST_6P_var(i,7) / tan(Obs_data(i)%t2data*degrees_to_radians)
+    elsewhere
+      IRF_Curves(i)%Triang = zero
+    end where
+  ENDIF
 
   deallocate(wks)
 ENDDO

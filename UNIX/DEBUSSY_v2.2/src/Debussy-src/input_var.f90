@@ -42,7 +42,7 @@ CHARACTER(256),DIMENSION(:),ALLOCATABLE :: PATH_NAME, PARAMETER_FILE, PROTOTYPE_
 
 CHARACTER(128),TARGET,save :: REFINEMENT_FILE, OUTPUT_FILE
 
-INTEGER(I4B),ALLOCATABLE,TARGET,save    :: N_EVERY(:)
+INTEGER(I4B),ALLOCATABLE,TARGET,save    :: N_EVERY(:),MICRO_FLAG(:)
 INTEGER(I4B),ALLOCATABLE,TARGET,save    :: NDATA(:),n2read(:),n2read_ab(:,:), n2read_c(:,:)
 INTEGER(I4B),ALLOCATABLE,TARGET,save    :: ILAMBDA(:), MONO_POSIT(:), DB_INDEX(:), IND_SPACE_GROUP(:,:), Nsp_at(:), &
                                            Z_ATOM(:,:), ITYPE_DB(:), PARAM_LIM(:), N2USE(:), &
@@ -61,6 +61,22 @@ INTEGER(I4B),target,save  :: SIMUL_FLAG, CALC_FLAG, CALC_RPDF, MAKEFIL_FLAG, NSE
 
 !____ Variables for reading 
 INTEGER(I4B),allocatable,TARGET,save :: FFORM(:), NSKIP_HEAD(:), NSKIP_FOOT(:), CHEB_NC(:), YOUNG_NC(:)
+
+INTEGER(I4B),DIMENSION(:),ALLOCATABLE,TARGET,save   :: INST_FLAG
+!_ 0 :: no IRF
+!__ 1 :: Caglioti + XYZ (Fullprof) GFW^2=U *tan^2\theta + V*tan\theta+W ;
+!                                  LFW = X * tan\theta + Y / cos\theta + Z, see FullProf
+!__ 2 :: Masciocchi/Topas          FW = ha + hb * tan\theta + hc / cos\theta ;
+!                                  ETA= lora + lorb * tan\theta + lorc / cos\theta
+REAL(CP),DIMENSION(:,:),ALLOCATABLE,TARGET,save                :: INST_6P_var,INST_5P_con
+!   In INST_6P_var  : 6 pos. for the classical IRF par.s
+!_  Position 7: "axial asym."  (1/(L*cot(2th0))) * Exp[ (2th-2th0)/(L*cot(2th)) ] * Heaviside[2th0-2th] :: L calculated from v.g.p.
+!____ INST_5P_con ::
+!_  1) "capillary"
+!_  2) "wobbling"
+!_  3) "pixel"
+!_  4) ""
+!_  5) ""
 
 TYPE(PHA_INFO),ALLOCATABLE,TARGET  :: ALL_PHA_INFO(:)
 

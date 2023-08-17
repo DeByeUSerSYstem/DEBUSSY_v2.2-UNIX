@@ -266,14 +266,14 @@ if [ "$pgmpath" != "$instpath" ]; then
       fstr=$(fgrep $pgmpath $HOME/.profile)
       if [ -z "$fstr" ]; then
         echo '  .profile found, updating..'
-        echo 'export PATH='$pgmpath'bin:$PATH' >> $HOME/.profile
+       echo 'export PATH='$pgmpath'bin:$PATH'   >> $HOME/.profile
       fi
     fi
     if [ -e $HOME/.bash_profile ]; then
       fstr=$(fgrep $pgmpath $HOME/.bash_profile)
       if [ -z "$fstr" ]; then
         echo '  .profile found, updating..'
-        echo 'export PATH='$pgmpath'bin:$PATH' >> $HOME/.bash_profile
+       echo 'export PATH='$pgmpath'bin:$PATH'   >> $HOME/.bash_profile
       fi
     fi
 fi

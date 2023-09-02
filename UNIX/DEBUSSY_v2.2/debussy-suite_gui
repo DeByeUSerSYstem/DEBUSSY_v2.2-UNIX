@@ -1,2 +1,6 @@
- 
-python /Users/federica/DEBUSSY/DEBUSSY_v2.2/src/GUI/DebUsSy-Suite_GUI.py
+platform=$OSTYPE
+if [ "$platform == darwin*" ] ; then
+ pythonw /Users/federica/DEBUSSY/DEBUSSY_v2.2/src/GUI/DebUsSy-Suite_GUI.py
+else
+   python3 /Users/federica/DEBUSSY/DEBUSSY_v2.2/src/GUI/DebUsSy-Suite_GUI.py
+fi

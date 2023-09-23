@@ -322,7 +322,7 @@ else if (imode==1) then
   if (tt_or_q==0) then
     q0=two*sin(duet2r*tt0)/wavel
     q1=two*sin(duet2r*tt1)/wavel
-   ! print*, 
+ 
     ! q1=max(q1,qsmx(1)) !!__RF 09.03.2018
     dq=(q1-q0)/(npq-1)
     q=dq*(/(i,i=0,npq-1)/)+q0

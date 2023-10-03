@@ -1,0 +1,100 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '00 4 * * *'  # daily at 4AM
+
+jobs:
+  run_build:
+    # pull requests are a duplicate of a branch push if within the same repo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+
+    name: Build DEBUSSY with with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+      fail-fast: false
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Set env vars
+        run: |
+          export REPOSITORY_NAME=${GITHUB_REPOSITORY#*/}  # just the repo, as opposed to org/repo
+          echo "REPOSITORY_NAME=${REPOSITORY_NAME}" >> $GITHUB_ENV
+
+      - name: Checkout the code
+        uses: actions/checkout@v3
+
+      - name: Install building requirements
+        run: |
+          sudo apt-get update && \
+          sudo apt-get install -y tree gfortran && \
+          sudo apt-get install -y libcerf-dev
+          #   libatlas3-base \
+          #   libblas3 \
+          #   libblas3gf \
+          #   libgsl0-dbg \
+          #   liblapack-dev \
+          #   liblapack3 \
+          #   liblapack3gf \
+          #   liblapacke \
+          #   libnlopt-dev \
+          #   libopenblas-dev \
+          #   libtool
+
+      - name: Build
+        run: |
+          set -vxeuo pipefail
+
+          cd UNIX/DEBUSSY_v2.2/
+          DEBUSSY_SRC_DIR="$PWD"
+          DEBUSSY_TARGET_DIR="/tmp/debussy"
+
+          # Build extlib:
+          cd extlib/LAPACK95-lite/
+          ./doall.sh
+          git status
+
+          # Build DEBUSSY:
+          cd ${DEBUSSY_SRC_DIR}
+          mkdir -v -p ${DEBUSSY_TARGET_DIR}
+
+          # Answers to the installation script:
+          #   installation folder is  : /tmp/debussy
+          #   /tmp/debussy/ exists
+          #   /home/vagrant/src/DEBUSSY_v2.2-UNIX/UNIX/DEBUSSY_v2.2/src exists
+          #   /tmp/debussy/lib exists
+          #   /tmp/debussy/incl exists
+          #   /tmp/debussy/bin exists
+
+          #   Install external libraries LAPACK (link only), LIBCERF, NLOPT (sudo credentials required) [Y / N] :
+          #   Install GUI ("GUI" folder must be in "src" folder) [Y / N] :
+          #   ... checking platform : this is a linux-gnu-system
+
+          #   ... current folder is /home/vagrant/src/DEBUSSY_v2.2-UNIX/UNIX/DEBUSSY_v2.2
+          #   Download lapack and blas libraries from system repositories? (an active internet connection is required) [Y / N]... your answer is y
+          #   Downloading lapack and blas libraries from system repositories ...
+          echo -e "/tmp/debussy\ny\ny\ny\n" | ./install_debussy_v2.2
+
+          # Check the resulting files:
+          ls -alF ${DEBUSSY_TARGET_DIR}
+          tree -aF ${DEBUSSY_TARGET_DIR}
+          ldd ${DEBUSSY_TARGET_DIR}/bin/Debussy
+
+      - name: Testing
+        run: |
+          set -vxeuo pipefail
+          cd UNIX/RUN_TEST_UNIX/
+          echo -e "\n" | bash ./drun
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: debussy-build-py${{ matrix.python-version }}
+          path: /tmp/debussy/

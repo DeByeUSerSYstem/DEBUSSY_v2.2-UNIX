@@ -8,8 +8,8 @@
 #     UNI-C, Denmark; Univ. of Tennessee, USA; NAG Ltd., UK
 #     August 5, 2000
 #
-FC   = gfortran -ffree-form
-FC1      = gfortran -ffixed-form
+FC   ?= gfortran -ffree-form
+FC1      ?= gfortran -ffixed-form
 # -dcfuns  Enable recognition of non-standard double
 #          precision  complex intrinsic functions
 # -dusty   Allows the compilation and execution of "legacy"

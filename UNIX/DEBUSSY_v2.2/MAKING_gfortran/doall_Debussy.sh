@@ -1,6 +1,6 @@
 ### program path
-debpath='/Users/federica/DEBUSSY/DEBUSSY_v2.2/'
-pgmpath='/Users/federica/DEBUSSY/DEBUSSY_v2.2/'
+debpath="$SRC_DIR/UNIX/DEBUSSY_v2.2/"
+pgmpath="$SRC_DIR/UNIX/DEBUSSY_v2.2/"
 ###
 ### paths
 binpath=$pgmpath'bin'

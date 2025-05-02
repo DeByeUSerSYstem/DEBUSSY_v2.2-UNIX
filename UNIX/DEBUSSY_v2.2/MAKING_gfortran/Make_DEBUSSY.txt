@@ -34,7 +34,7 @@ IOPT =  -I$(MODDIR) $(INCUSE)
 FCOM = gfortran
 # two optional compilation modes
 FSAF = -fbounds-check -fbacktrace -finit-local-zero -fexternal-blas -lblas $(IOPT)
-FFAS = -O3 -floop-nest-optimize -finit-local-zero -fexternal-blas -lblas $(IOPT)
+FFAS = -O3 -finit-local-zero -fexternal-blas -lblas $(IOPT)
 ################### CHOOSE BETWEEN FAST AND SAFE (DEBUG) FLAGS ################
 include comphow.inc
 ###############################################################################

@@ -308,6 +308,9 @@ subroutine input_main
 
   enddo MAINREAD
 
+    ! ND 2024 - initialize and push a random seed based on the RND_SEED_STATE variable
+  call init_rnd_seed(RND_SEED_STATE)
+
 ! check for correctness of background information 
   NSET_BACK = 0 
   IF (ALL(LEN_TRIM(BLANK_FILENAME) == 0) .and. ALL(YOUNG_NC == 0) .and. ALL(CHEB_NC == 0)) THEN
@@ -489,6 +492,7 @@ subroutine INIVALS
   REFINEMENT_FILE = ''
   MAKEFIL_FLAG    = 0   
   OUTPUT_FILE = ''
+  RND_SEED_STATE = 0 ! ND 2024 - control the random seed
 
 end subroutine INIVALS
 !_______________________________________________________________________________________________
@@ -921,7 +925,7 @@ subroutine ZLOOP(rline,ident,buffer,lbuf,i)
   CHARACTER(4),intent(IN)    :: ident
   CHARACTER(lbuf),intent(IN) :: buffer
 
-  INTEGER(I4B)     :: ls, ll, j
+  INTEGER(I4B)     :: ls, ll, j,astat
   CHARACTER(132)   :: lline
 
       refout: SELECT CASE(ident)
@@ -935,6 +939,13 @@ subroutine ZLOOP(rline,ident,buffer,lbuf,i)
         REFINEMENT_FILE = buffer(:lbuf)
       CASE ('outs') refout
         OUTPUT_FILE = buffer(:lbuf)
+      CASE ("seed")
+        ! ND 2024 - control the random seed
+        read (buffer(:lbuf), *, iostat=astat) RND_SEED_STATE
+        if (astat /= 0) then
+          print*,'Error in .dwa input at line ',i
+          STOP
+        end if
       CASE ('make') refout
         lline = buffer(:lbuf)
             ls = SCAN(lline,',') 

@@ -58,7 +58,7 @@ LOGICAL,ALLOCATABLE, TARGET,save        :: FULLPOL(:)
 
 
 INTEGER(I4B),target,save  :: SIMUL_FLAG, CALC_FLAG, CALC_RPDF, MAKEFIL_FLAG, NSET, NSTR, NSTR23, NSET_BACK, NAMO=0
-
+INTEGER(I4B),target,save  :: RND_SEED_STATE
 !____ Variables for reading 
 INTEGER(I4B),allocatable,TARGET,save :: FFORM(:), NSKIP_HEAD(:), NSKIP_FOOT(:), CHEB_NC(:), YOUNG_NC(:)
 

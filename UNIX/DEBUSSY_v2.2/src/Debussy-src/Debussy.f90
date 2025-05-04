@@ -320,6 +320,8 @@
  action='WRITE')
  write(simsum,('(1x,a)')) '_____   '//TRIM(OUTPUT_FILE_W)//'     SUMMARY LOGFILE   _____'
  write(simsum,*) ' '
+write(simsum,*)'  Random seed state = ', RND_SEED_STATE
+ write(simsum,*) ' '
  sim_sum=.true. 
  
   call LOOP_CALC(ungar=iok)

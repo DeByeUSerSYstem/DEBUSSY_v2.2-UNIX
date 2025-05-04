@@ -490,6 +490,39 @@ IF(TWO_FM_ONE(1) == 0) TWO_FM_ONE(1) = n1
 end Function TWO_FM_ONE
 !**********************************************
 
+! ND 2024 - randomize seed based on a state integer + mod seed randomization
+subroutine init_rnd_seed(state)
+  implicit none
+  integer(I4B), intent(inout) ::  state
+  integer(I4B), allocatable ::  seed(:)
+  integer(I4B)  ::  dt_seed(8), s_size, i, num
+
+  ! initialize the seed
+  call random_seed(size=s_size)
+  if(allocated(seed)) deallocate(seed)
+  allocate(seed(1:s_size))
+  call random_seed(get=seed)
+
+  ! the seed is generated starting from a state integer
+  ! if the state integer is zero, auto-generate it
+  if (state .eq. 0) then
+    call date_and_time(values=dt_seed)
+    state = dt_seed(8)*dt_seed(7)*dt_seed(6) ! milliseconds, seconds, minutes
+    state = ieor(state, int(getpid(), kind(state))) ! combine to pid in case of parallel exec
+  end if
+
+  ! increase entropy generating random number starting from the state
+  num = state
+  do i = lbound(seed, 1), ubound(seed, 1)
+    num = mod(8121*num+28411, 13445684) ! mod randomization
+    seed(i) = num
+  end do
+
+  ! put the generated seed
+  call random_seed(put=seed)
+end subroutine
+
+
 END MODULE nano_deftyp
 !______________________________________________________________________________
 !

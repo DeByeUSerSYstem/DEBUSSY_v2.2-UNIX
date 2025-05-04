@@ -855,7 +855,9 @@ end function AVESTD_DISTR_2D
          open(reffinu, status='replace', file=path_output_files(1:lpath_output_files)// &
                                     REFINEMENT_FILE(1:index(REFINEMENT_FILE,'.',.true.)-1)//&
                                       '_ref.sum',action='WRITE')
-         write(reffinu,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+             write(reffinu,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+               write(reffinu,*)' '
+              write(reffinu,*)'  Random seed state = ', RND_SEED_STATE
                write(reffinu,*)' '
                write(reffinu,*)'  # of cycles = ', kouncyp
                write(reffinu,*)'  Max Function / Tolerance = ', Max_Func, Func_Tol
@@ -868,6 +870,8 @@ end function AVESTD_DISTR_2D
                                       REFINEMENT_FILE(1:index(REFINEMENT_FILE,'.',.true.)-1)//&
                                       '_ref_F_'//stageNR(1:2)//'.sum',action='WRITE')
          write(reffinu1,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+               write(reffinu1,*)' '
+                 write(reffinu1,*)'  Random seed state = ', RND_SEED_STATE
                write(reffinu1,*)' '
                write(reffinu1,*)'  STAGE # = ',kstage
                write(reffinu1,*)'  # of cycles = ', kouncyp
@@ -988,6 +992,8 @@ end function AVESTD_DISTR_2D
                                       '_ref.sum',action='WRITE')
                write(reffinu,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
                write(reffinu,*)' '
+               write(reffinu,*)'  Random seed state = ', RND_SEED_STATE
+               write(reffinu,*)' '
                write(reffinu,*)'  # of cycles = ', kouncyp
                write(reffinu,*)'  Max Function / Tolerance = ', Max_Func, Func_Tol
                write(reffinu,*)'  CPU Time: Total / Per cyle = ', timepolyt,timepolyt/kouncyp
@@ -999,6 +1005,8 @@ end function AVESTD_DISTR_2D
                                       REFINEMENT_FILE(1:index(REFINEMENT_FILE,'.',.true.)-1)//&
                                       '_ref_F_'//stageNR(1:2)//'.sum',action='WRITE')
                write(reffinu1,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+               write(reffinu1,*)' '
+               write(reffinu1,*)'  Random seed state = ', RND_SEED_STATE
                write(reffinu1,*)' '
                write(reffinu1,*)'  STAGE # = ',kstage
                write(reffinu1,*)'  # of cycles = ', kouncyp
@@ -1115,6 +1123,8 @@ end function AVESTD_DISTR_2D
                                       '_ref.sum',action='WRITE')
                write(reffinu,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
                write(reffinu,*)' '
+               write(reffinu,*)'  Random seed state = ', RND_SEED_STATE
+               write(reffinu,*)' '
                write(reffinu,*)'  # of cycles = ', kouncyp
                write(reffinu,*)'  Max Function / Tolerance = ', Max_Func, Func_Tol
                write(reffinu,*)'  CPU Time: Total / Per cyle = ', timepolyt,timepolyt/kouncyp
@@ -1126,6 +1136,8 @@ end function AVESTD_DISTR_2D
                                       REFINEMENT_FILE(1:index(REFINEMENT_FILE,'.',.true.)-1)//&
                                       '_ref_F_'//stageNR(1:2)//'.sum',action='WRITE')
                write(reffinu1,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+               write(reffinu1,*)' '
+               write(reffinu1,*)'  Random seed state = ', RND_SEED_STATE
                write(reffinu1,*)' '
                write(reffinu1,*)'  STAGE # = ',kstage
                write(reffinu1,*)'  # of cycles = ', kouncyp
@@ -1240,6 +1252,8 @@ end function AVESTD_DISTR_2D
                                       '_ref.sum',action='WRITE')
                write(reffinu,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
                write(reffinu,*)' '
+               write(reffinu,*)'  Random seed state = ', RND_SEED_STATE
+               write(reffinu,*)' '
                write(reffinu,*)'  # of cycles = ', kouncyp
                write(reffinu,*)'  Max Function / Tolerance = ', Max_Func, Func_Tol
                write(reffinu,*)'  CPU Time: Total / Per cyle = ', timepolyt,timepolyt/kouncyp
@@ -1251,6 +1265,8 @@ end function AVESTD_DISTR_2D
                                       REFINEMENT_FILE(1:index(REFINEMENT_FILE,'.',.true.)-1)//&
                                       '_ref_F_'//stageNR(1:2)//'.sum',action='WRITE')
                write(reffinu1,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+               write(reffinu1,*)' '
+               write(reffinu1,*)'  Random seed state = ', RND_SEED_STATE
                write(reffinu1,*)' '
                write(reffinu1,*)'  STAGE # = ',kstage
                write(reffinu1,*)'  # of cycles = ', kouncyp
@@ -1365,6 +1381,8 @@ end function AVESTD_DISTR_2D
                                       '_ref.sum',action='WRITE')
                write(reffinu,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
                write(reffinu,*)' '
+               write(reffinu,*)'  Random seed state = ', RND_SEED_STATE
+               write(reffinu,*)' '
                write(reffinu,*)'  # of cycles = ', kouncyp
                write(reffinu,*)'  Max Function / Tolerance = ', Max_Func, Func_Tol
                write(reffinu,*)'  CPU Time: Total / Per cyle = ', timepolyt,timepolyt/kouncyp
@@ -1376,6 +1394,8 @@ end function AVESTD_DISTR_2D
                                       REFINEMENT_FILE(1:index(REFINEMENT_FILE,'.',.true.)-1)//&
                                       '_ref_F_'//stageNR(1:2)//'.sum',action='WRITE')
                write(reffinu1,('(1x,a)')) '_____   '//TRIM(REFINEMENT_FILE)//'     SUMMARY LOGFILE   _____'
+               write(reffinu1,*)' '
+               write(reffinu1,*)'  Random seed state = ', RND_SEED_STATE
                write(reffinu1,*)' '
                write(reffinu1,*)'  STAGE # = ',kstage
                write(reffinu1,*)'  # of cycles = ', kouncyp

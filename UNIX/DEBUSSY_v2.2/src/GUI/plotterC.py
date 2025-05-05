@@ -61,8 +61,6 @@ bcolor=['b','y']
 lcolor=['r','g','b','c','m','k','y']
 ##########################################################################################
 
-if gset.Platform[:3].lower() != 'win': matplotlib.use('WXAgg')
-
 
 class SquareRootScale(mscale.ScaleBase):
     """

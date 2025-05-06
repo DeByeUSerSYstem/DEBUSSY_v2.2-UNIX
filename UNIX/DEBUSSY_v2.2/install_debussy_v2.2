@@ -113,18 +113,20 @@ if [ "$aw1" == "Y" ] || [ "$aw1" == "y" ] && [ "$platform" == "linux-gnu" ] ; th
         echo 'Downloading lapack and blas libraries from system repositories ... '
         echo ' '
         echo 'LAPACK'
-        sudo apt-get install liblapack3gf
-        sudo apt-get install libatlas3-base
-        sudo apt-get install liblapacke
-        sudo apt-get install liblapack3
-        sudo apt-get install liblapack-dev
+        sudo apt-get install -y \
+	  liblapack3gf \
+          libatlas3-base \
+          liblapacke \
+          liblapack3 \
+          liblapack-dev
         echo ' '
         echo 'LIBBLAS'
-        sudo apt-get install libblas3
-        sudo apt-get install libblas3gf
-        sudo apt-get install libopenblas-dev
-        sudo apt-get install libgsl0-dbg
-        sudo apt-get install libtool
+        sudo apt-get install -y \
+          libblas3 \
+          libblas3gf \
+          libopenblas-dev \
+          libgsl0-dbg \
+          libtool
         echo ' '
     fi
 fi

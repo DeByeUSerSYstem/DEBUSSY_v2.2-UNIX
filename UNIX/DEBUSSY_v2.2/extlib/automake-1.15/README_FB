@@ -1,0 +1,8 @@
+#to install from command line in linux
+ cd automake-1.15
+ ./configure  --prefix=/opt/aclocal-1.15
+ make
+ sudo mkdir -p /opt
+ sudo make install
+ export PATH=/opt/aclocal-1.15/bin:$PATH
+ aclocal --version

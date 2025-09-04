@@ -198,8 +198,13 @@ class reader:
                 if rline0 == 'outs':
                     self.dwainfo['outs'] = rline[1]
                     for i in range(ndataset):
-                        self.dwainfo['outf'+ '%i'%ndataset] = rline[1] + '_' + \
-                          self.dwainfo['beamt%i'%(ndataset)] + '#%02i.cal'%(ndataset)
+                        self.dwainfo['outf' + '%i' % (i+1)] = (
+                                rline[1] + '_' +
+                                self.dwainfo['beamt%i' % (i+1)] +
+                                '#%02i.cal' % (i+1)
+                        )
+                        #self.dwainfo['outf'+ '%i'%ndataset] = rline[1] + '_' + \
+                          #self.dwainfo['beamt%i'%(ndataset)] + '#%02i.cal'%(ndataset)
                 if rline0 == 'rpdf':
                     self.dwainfo['rpdf'] = rline[1]
 

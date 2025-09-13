@@ -26,6 +26,7 @@ import glob
 from shutil import copy2 as shutil_copy2
 import numpy as np
 import matplotlib
+#matplotlib.use('WXAgg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from readerC import reader
@@ -35,7 +36,6 @@ from debfuncx import phase_from_tqi
 import matplotlib.scale as mscale
 import matplotlib.transforms as mtransforms
 import matplotlib.ticker as ticker
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 ##########################################################################################
 
 ##----------------------------------------------------------------------------------------
@@ -60,6 +60,7 @@ dcolor=["r", "g", "m", "b", "c", "y", "k"]
 bcolor=['b','y']
 lcolor=['r','g','b','c','m','k','y']
 ##########################################################################################
+
 
 
 class SquareRootScale(mscale.ScaleBase):
@@ -212,11 +213,12 @@ class plotter:
         Returns a Intensity vs. 2theta/q/d plot of calculated diffraction intensity of atomic clusters.
         '''    
         toplot = False
-        fig = plt.figure()
-        axes = plt.axes()
-        ax=plt.subplot(111)
+        fig, ax = plt.subplots()
+ #       ax=plt.subplot(111)
+#        fig = plt.figure()
         fl = fins.split()
         points_with_annotation = []
+#        axes = plt.axes()
         nfl = len(fl)
         xvall, yvall, wl_all, color1 = [], [], [], []
         for c in range(nfl):
@@ -284,7 +286,7 @@ class plotter:
             for c in range(nfl):
                 phase = phase_from_tqi(self,fl[c])[0]
                 if not os.path.isfile(phase+'.hkl'): continue
-                if c > 0: 
+                if c > 0:
                     if phase == phase_from_tqi(self,fl[c-1])[0]: continue
                 phase_hkl = phase.rpartition(gv.SEP)[-1]+' hkl'
                 hkl_i = np.loadtxt(phase+'.hkl', skiprows=1, usecols=(0,1,2), dtype=int)
@@ -299,23 +301,26 @@ class plotter:
                 labhkl = hkl_i[iix]
                 ky = 0
                 yp = ypv[-2::-2][c]
-                for kk in range(len(xxhkl)):
-                    xp = xxhkl[kk]
-                    if kk == 0: point, = plt.plot(xp,yp,c=phase_c,marker='|',ls='',label=r'%s'%(phase_hkl)) ##change colour with phase
-                    else: point, = plt.plot(xp,yp,c=phase_c,marker='|',ls='')
-                    shkl = ''
-                    for kl in range(3): 
-                        shkl += ' '+str(labhkl[kk][0][kl])
-                    shkl = shkl.strip(' ')
-                    if np.all(xxhkl[:kk]-xp): 
-                        annotation = axes.annotate("%s" %shkl, xy=(xp,yp), xycoords='data',
-                            xytext=(xp,yp), textcoords='data', horizontalalignment="left")
-                    if not np.all(xxhkl[:kk]-xp): 
-                        zzy = xxhkl[:kk]-xp==0.0
-                        i00 = np.nonzero(zzy)
-                        ky = len(i00[0])
-                        annotation = axes.annotate("%s" %shkl, xy=(xp,yp), xycoords='data',
-                            xytext=(xp,yp+ky*yps), textcoords='data', horizontalalignment="left")
+                for kk, xp in enumerate(xxhkl):
+                    if kk == 0:
+                        point, = ax.plot(xp, yp, c=phase_c, marker='|', ls='',
+                        label=f"{phase_hkl}")  # first point with label
+                    else:
+                        point, = ax.plot(xp, yp, c=phase_c, marker='|', ls='')
+                    shkl = " ".join(str(labhkl[kk][0][kl]) for kl in range(3))
+                    if xp not in xxhkl[:kk]:
+                        annotation = ax.annotate(
+                           shkl, xy=(xp, yp), xycoords='data',
+                           xytext=(xp, yp), textcoords='data',
+                           ha="left"
+                        )
+                    else:
+                        dup_count = list(xxhkl[:kk]).count(xp)
+                        annotation = ax.annotate(
+                            shkl, xy=(xp, yp), xycoords='data',
+                            xytext=(xp, yp + dup_count * yps), textcoords='data',
+                             ha="left"
+                        )
                     annotation.set_visible(False)
                     points_with_annotation.append([point, annotation])
                 def on_move(event):
@@ -401,9 +406,7 @@ class plotter:
         
         ndat = dwaobj.ndataset
         nstr = dwaobj.nstructure
-        fig = plt.figure()
-        axes = plt.axes()
-        ax = plt.subplot(111)
+    
         for i in range(ndat):
             dat = dwaobj.dwainfo['data%i'%(i+1)].rpartition(gv.SEP)[-1]
             #print(dat)
@@ -413,6 +416,7 @@ class plotter:
                 nblnk = 1
             ncol = 3 + nstr + nblnk
             wave = self.get_wave(dwaobj)
+          #  print(dwaobj.dwainfo.keys()) print keys for debugging
             try:
                 if 'sim' in varx:
                     col = np.loadtxt(dwaobj.dwainfo['outf%i'%(i+1)],skiprows = 0,unpack = True)
@@ -424,7 +428,8 @@ class plotter:
                 elif 'ref' in varx:
                     print(">>>>>   Error: can\'t find file %s or read data    <<<<<"%(dwaobj.dwainfo['bestcal%i'%(i+1)]))
             else:
-
+                fig = plt.figure()
+                ax = plt.subplot(111)
                 liny = True
                 imin = []
                 if '_q' in varx:
@@ -498,11 +503,9 @@ class plotter:
                                 else : blabel = 'Backgr. %i'%(b+1)
                                 ax.plot(xx, col[3+nstr+b],'%s-'%bcolor[b], label=r'%s'%(blabel))
                                 imin += [min(col[3+nstr+b])]
-
                 if '_hkl' in varx:
                     hklxall = self.get_hkl(dwaobj,ftype='.hkl',xtype=svarx)
                     hklx = hklxall[i]
-
                     points_with_annotation = []
                     ymin = min(imin)
                     yplot = ax.get_ylim()
@@ -529,15 +532,19 @@ class plotter:
                             for kl in range(3): 
                                 shkl += ' '+str(labhkl[kk][0][kl])
                             shkl = shkl.strip(' ')
-                            if np.all(xxhkl[:kk]-xp): 
-                                annotation = axes.annotate("%s" %shkl, xy=(xp,yp), xycoords='data',
-                                    xytext=(xp,yp), textcoords='data', horizontalalignment="left")
-                            if not np.all(xxhkl[:kk]-xp): 
-                                zzy = xxhkl[:kk]-xp==0
-                                i00 = np.nonzero(zzy)
-                                ky = len(i00[0])
-                                annotation = axes.annotate("%s" %shkl, xy=(xp,yp), xycoords='data',
-                                    xytext=(xp,yp+ky*yps), textcoords='data', horizontalalignment="left")
+                            if xp not in xxhkl[:kk]:
+                                annotation = ax.annotate(
+                                    shkl, xy=(xp, yp), xycoords='data',
+                                    xytext=(xp, yp), textcoords='data',
+                                    ha="left"
+                                )
+                            else:
+                                dup_count = list(xxhkl[:kk]).count(xp)
+                                annotation = ax.annotate(
+                                    shkl, xy=(xp, yp), xycoords='data',
+                                    xytext=(xp, yp + dup_count * yps), textcoords='data',
+                                    ha="left"
+                                )
                             annotation.set_visible(False)
                             points_with_annotation.append([point, annotation])
                     def on_move(event):
@@ -812,8 +819,6 @@ class plotter:
                     #sc1 = ax1.pcolor(b,h,nf,edgecolors = 'none',cmap = plt.cm.spectral)
                     im1 = ax1.imshow(nf, cmap = plt.cm.Spectral_r,
                                extent = [0, max(col[7]), 0, max(col[8])], alpha=1., interpolation='nearest')
-                    #divider = make_axes_locatable(ax1)
-                    #cax1 = divider.append_axes("right", size="5%", pad=0.05)   
                     plt.colorbar(im1)
                     #xticklabels =ax1.get_xticklabels()
                     #plt.setp(xticklabels, visible=False)

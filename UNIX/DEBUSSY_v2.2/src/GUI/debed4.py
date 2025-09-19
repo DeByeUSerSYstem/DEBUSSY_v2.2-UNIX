@@ -19,6 +19,7 @@
 #     see <http://www.gnu.org/licenses/>.
 #
 #===================================================================================================
+import sys
 import os
 import threading
 import subprocess
@@ -34,9 +35,9 @@ from plotterC import plotter
 from customw7 import CustomPlotter
 ########################################################################
 verbose = False
-# xterm_opt = 'xterm -geometry 120x30'.split()
+# xterm_opt = 'xinit -geometry 120x30'.split()
 xterm_opt = get_term(gset.Platform)
-xterm_opt0 = 'xterm -T TESTING -e tail -f PIPE_PATH'.split()
+xterm_opt0 = 'xinit -T TESTING -e tail -f PIPE_PATH'.split()
 wtm = 86400
 wtms = 5
 if not gset.PGM_Path.endswith(gv.SEP) : gset.PGM_Path = gset.PGM_Path+gv.SEP
@@ -2020,13 +2021,20 @@ class ButtonsPanel(wx.Panel):
 #                 elif self.cbsqrtI.GetValue() == True: what += '_sqrtI'
                 if self.cbhkl.GetValue() == True: what = what + '_hkl'
                 #plotter(input_file, what)
-                if gset.Platform[:3].lower() == 'lin': 
-                    cmd = ['python3', gset.GUI_Path + 'plotterC.py', input_file, what]
-                elif gset.Platform[:3].lower() == 'dar':
-      	            cmd = ['pythonw', gset.GUI_Path + 'plotterC.py', input_file, what]
-                elif gset.Platform[:3].lower() == 'win':
-                    cmd = ['python', gset.GUI_Path + 'plotterC.py', input_file, what]  
-                #cmd = ['pythonw', gset.GUI_Path + 'plotterC.py', input_file, what]
+                script_path = os.path.join(gset.GUI_Path, "plotterC.py")
+                if sys.platform.startswith("win") or sys.platform == "darwin":
+                    py_exec = sys.executable.replace("python.exe", "pythonw.exe").replace("python", "pythonw")
+                else:
+                    py_exec = sys.executable
+
+                cmd = [py_exec, script_path, input_file, what]
+               # if gset.Platform[:3].lower() == 'lin':
+                    #cmd = ['python3', gset.GUI_Path + 'plotterC.py', input_file, what]
+                #elif gset.Platform[:3].lower() == 'dar':
+      	            #cmd = ['pythonw', gset.GUI_Path + 'plotterC.py', input_file, what]
+                #elif gset.Platform[:3].lower() == 'win':
+                    #cmd = ['python', gset.GUI_Path + 'plotterC.py', input_file, what]
+                #cmd = ['python', gset.GUI_Path + 'plotterC.py', input_file, what]
                 plot_proc = subprocess.Popen(cmd)
             thread = threading.Thread(target = self.ref_run, args = (job_type, input_file, stop_flag, buffer_name, button, label, what, ))
             thread.setDaemon(True)
@@ -2043,7 +2051,7 @@ class ButtonsPanel(wx.Panel):
             os.system('start "%s" %s'%(label,'drun.bat'))
         else:
             xterm_opt2 = ['-T', label, '-sb', '-e', '%s; sleep %i'%(pgm, wtm)]
-            terminal = 'xterm -geometry 120x30'.split()
+            terminal = 'xinit -geometry 120x30'.split()
             cmd1 = terminal + xterm_opt2
             proc = subprocess.Popen(cmd1, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 

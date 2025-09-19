@@ -20,6 +20,7 @@
 #
 #===================================================================================================
 import os
+import sys
 import threading
 import subprocess
 import wx
@@ -32,8 +33,8 @@ from readerC import reader
 from builderC import builder
 from customw7 import CustomPlotter
 ##########################################################################################
-xterm_opt = 'xterm  -geometry 120x30'.split()
-xterm_opt0 = 'xterm  -T TESTING  -e tail  -f PIPE_PATH'.split()
+xterm_opt = 'xinit  -geometry 120x30'.split()
+xterm_opt0 = 'xinit  -T TESTING  -e tail  -f PIPE_PATH'.split()
 wtm = 86400
 wtms = 5
 if gset.PGM_Path[-1]!= gv.SEP : gset.PGM_Path = gset.PGM_Path + gv.SEP
@@ -1534,7 +1535,7 @@ class ButtonsPanel(wx.Panel):
             os.system('start "%s" %s'%(label,'crun.bat'))
         else:
             xterm_opt2 = ['-T', label, '-sb', '-e', '%s; sleep %i'%(pgmx, wtm)]
-            terminal = 'xterm -geometry 120x30'.split()
+            terminal = 'xinit -geometry 120x30'.split()
             cmd1 = terminal + xterm_opt2
             proc1 = subprocess.Popen(cmd1, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
 
@@ -1574,15 +1575,23 @@ class ButtonsPanel(wx.Panel):
 #             if self.cbsqrtI.GetValue() == True: what = what + '_sqrtI'
             if self.cbhkl.GetValue() == True: what = what + '_hkl'
 #             cmd = ['python', os.path.abspath(gset.GUI_Path) + "plotterC.py", fs, what]
+            py_exec = sys.executable
+            if gset.Platform[:3].lower() in ("dar", "win"):
+                candidate = py_exec.replace("python.exe", "pythonw.exe").replace("python", "pythonw")
+                if os.path.exists(candidate):
+                    py_exec = candidate
+
+            cmd = [py_exec, os.path.join(gset.GUI_Path, "plotterC.py"), fs, what]
+            proc = subprocess.Popen(cmd)
             ##__HERE AND/OR ELSEWHERE THE PYTHON/PYTHONW SHOULD BE FIXED !!!!
-            if gset.Platform[:3].lower() == 'lin': 
-                cmd = ['python3', gset.GUI_Path + "plotterC.py", fs, what]
-            elif gset.Platform[:3].lower() == 'dar':
-      	        cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
-            elif gset.Platform[:3].lower() == 'win':
-                cmd = ['python', gset.GUI_Path + "plotterC.py", fs, what]  
-            #cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
-            proc  =  subprocess.Popen(cmd)
+            # if gset.Platform[:3].lower() == 'lin':
+            #     cmd = ['python3', gset.GUI_Path + "plotterC.py", fs, what]
+            # elif gset.Platform[:3].lower() == 'dar':
+      	     #    cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
+            # elif gset.Platform[:3].lower() == 'win':
+            #     cmd = ['python', gset.GUI_Path + "plotterC.py", fs, what]
+            # #cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
+            # proc  =  subprocess.Popen(cmd)
 
     ##__Custom plot
     def pcstm_click(self, event):

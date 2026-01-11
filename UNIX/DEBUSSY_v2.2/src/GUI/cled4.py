@@ -1575,23 +1575,14 @@ class ButtonsPanel(wx.Panel):
 #             if self.cbsqrtI.GetValue() == True: what = what + '_sqrtI'
             if self.cbhkl.GetValue() == True: what = what + '_hkl'
 #             cmd = ['python', os.path.abspath(gset.GUI_Path) + "plotterC.py", fs, what]
-            py_exec = sys.executable
-            if gset.Platform[:3].lower() in ("dar", "win"):
-                candidate = py_exec.replace("python.exe", "pythonw.exe").replace("python", "pythonw")
-                if os.path.exists(candidate):
-                    py_exec = candidate
-
-            cmd = [py_exec, os.path.join(gset.GUI_Path, "plotterC.py"), fs, what]
-            proc = subprocess.Popen(cmd)
-            ##__HERE AND/OR ELSEWHERE THE PYTHON/PYTHONW SHOULD BE FIXED !!!!
-            # if gset.Platform[:3].lower() == 'lin':
-            #     cmd = ['python3', gset.GUI_Path + "plotterC.py", fs, what]
-            # elif gset.Platform[:3].lower() == 'dar':
-      	     #    cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
-            # elif gset.Platform[:3].lower() == 'win':
-            #     cmd = ['python', gset.GUI_Path + "plotterC.py", fs, what]
-            # #cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
-            # proc  =  subprocess.Popen(cmd)
+##__HERE AND/OR ELSEWHERE THE PYTHON/PYTHONW SHOULD BE FIXED !!!!
+            if gset.Platform[:3].lower() == 'lin':
+                cmd = ['python3', gset.GUI_Path + "plotterC.py", fs, what]
+            elif gset.Platform[:3].lower() == 'dar':
+                cmd = ['pythonw', gset.GUI_Path + "plotterC.py", fs, what]
+            elif gset.Platform[:3].lower() == 'win':
+                cmd = ['python', gset.GUI_Path + "plotterC.py", fs, what]
+            proc  =  subprocess.Popen(cmd)
 
     ##__Custom plot
     def pcstm_click(self, event):

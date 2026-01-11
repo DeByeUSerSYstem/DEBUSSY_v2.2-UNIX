@@ -902,17 +902,12 @@ class CustomPlotter(wx.Frame):
       if (self.nplot >= 1 and mode == 'replot') : self.proc.terminate()
       if mode == 'plot' : self.nplot += 1
       plotfile = self.ReadWrite(event, 'plot')
-      py_exec = sys.executable
-      if gset.Platform[:3].lower() in ('dar', 'win'):
-          if "python" in os.path.basename(py_exec).lower():
-              py_exec = py_exec.replace("python.exe", "pythonw.exe").replace("python", "pythonw")
-      cmd = [py_exec, plotfile]
-      # if gset.Platform[:3].lower() == 'lin':
-      #     cmd = ['python3', plotfile]
-      # elif gset.Platform[:3].lower() == 'dar':
-      # 	  cmd = ['pythonw', plotfile]
-      # elif gset.Platform[:3].lower() == 'win':
-      #     cmd = ['python', plotfile]
+      if gset.Platform[:3].lower() == 'lin':
+        cmd = ['python3', plotfile]
+      elif gset.Platform[:3].lower() == 'dar':
+        cmd = ['pythonw', plotfile]
+      elif gset.Platform[:3].lower() == 'win':
+        cmd = ['python', plotfile]
       self.proc = subprocess.Popen(cmd, stdin = subprocess.PIPE, stderr = subprocess.STDOUT)
 #       else:
 #           self.proc.communicate("execfile('%s')"%plotfile)
